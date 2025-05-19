@@ -1,0 +1,1 @@
+pub type HashBytes = Vec<u8>;
