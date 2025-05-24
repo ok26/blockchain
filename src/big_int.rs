@@ -6,9 +6,9 @@ use std::ops::{
     Shl,
     Shr,
     Not,
-    Neg
+    Neg,
 };
-use crate::random::get_random_u64;
+use crate::random::get_nrandom_u64;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BigInt<const T: usize = 128> {
@@ -48,17 +48,18 @@ impl<const T: usize> BigInt<T> {
     }
 
     pub fn rand(low: usize, high: usize) -> Self {
-        if high < low {
-            panic!("High must be greater than low");
+        if high < low || low >= T || high >= T {
+            panic!("Invalid range for random number generation");
         }
-        let mut bytes = [0; T];
-        for i in 0..low {
-            bytes[i] = get_random_u64()
+
+        let rbytes =  get_nrandom_u64(high + 1);
+        let mut bytes: [u64; T] = [0; T];
+
+        let high_part = rbytes[0] as usize % (high - low + 1);
+        for i in 0..(low + high_part) {
+            bytes[i] = rbytes[i + 1];
         }
-        let high_part = get_random_u64() as usize % (high - low + 1);
-        for i in low..(low + high_part) {
-            bytes[i] = get_random_u64();
-        }
+
         BigInt { bytes }
     }
 
@@ -103,6 +104,14 @@ impl<const T: usize> BigInt<T> {
         let mut result = self.clone();
         for i in k..T {
             result.set_part(i, 0);
+        }
+        result
+    }
+
+    pub fn mod_u64(&self, other: u64) -> u128 {
+        let mut result = 0;
+        for i in (0..T).rev() {
+            result = ((result << 64) + self.get_part(i) as u128) % other as u128;
         }
         result
     }
@@ -202,13 +211,17 @@ impl<const T: usize> Mul<BigInt<T>> for BigInt<T> {
         else if b {
             return self.single_part_mul(rhs.get_part(0))
         }
-
-        let mut n = 1;
+        let mut n1 = 1;
+        let mut n2 = 1;
         for i in 0..T {
-            if self.get_part(i) != 0 || rhs.get_part(i) != 0 {
-                n = i + 1;
+            if self.get_part(i) != 0 {
+                n1 = i + 1;
+            }
+            if rhs.get_part(i) != 0 {
+                n2 = i + 1;
             }
         }
+        let n = if n1 > n2 { n1 } else { n2 };
 
         let m = (n + 1) / 2;
         let mut x0 = BigInt::<T>::new();
@@ -387,7 +400,7 @@ impl<const T: usize> BigIntMod<T> {
         mu
     }
 
-    fn barret_reduce(&mut self) {
+    pub fn barret_reduce(&mut self) {
         let k = self.modulo.log2() / 64 + 1;
         if self.barret_mu.is_none() {
             println!("Calculating mu");
