@@ -20,12 +20,6 @@ impl<const T: usize> BigInt<T> {
         Self { bytes: [0; T] }
     }
 
-    pub fn size() -> usize { T }   
-
-    pub fn from(big_int: Self) -> Self {
-        Self { bytes: big_int.get_parts() }
-    }
-
     pub fn from_num(num: u128) -> Self {
         let mut bytes = [0; T];
         bytes[0] = (num as u128 % (u64::MAX as u128 + 1)) as u64;
@@ -69,8 +63,6 @@ impl<const T: usize> BigInt<T> {
         }
     }
 
-    fn get_parts(&self) -> [u64; T] { self.bytes.clone() }
-
     fn get_part(&self, index: usize) -> u64 {
         if index < T { self.bytes[index] } 
         else { 0 }
@@ -112,21 +104,6 @@ impl<const T: usize> BigInt<T> {
         let mut result = 0;
         for i in (0..T).rev() {
             result = ((result << 64) + self.get_part(i) as u128) % other as u128;
-        }
-        result
-    }
-
-    pub fn pow(&self, exponent: u64) -> Self {
-        let mut result = BigInt::<T>::from_num(1);
-        let mut base = *self;
-        let mut exp = exponent;
-
-        while exp > 0 {
-            if exp % 2 == 1 {
-                result = result * base;
-            }
-            base = base * base;
-            exp /= 2;
         }
         result
     }
