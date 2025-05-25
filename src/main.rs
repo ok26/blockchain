@@ -1,8 +1,4 @@
 use big_int::{BigInt, BigIntMod};
-use rsa::{generate_primes, generate_keys};
-use math::{gcd, lcm, mod_inverse};
-
-use std::thread;
 
 mod block;
 mod merkle;
@@ -14,25 +10,25 @@ mod rsa;
 mod math;
 
 fn main() {
-    // let modulo = BigInt::<128>::from_num(2).pow(4000) - BigInt::<128>::from_num(8);
-    // let num = BigIntMod::<128>::from_num(5, modulo);
-    // let exp = BigInt::<128>::from_num(2).pow(100);
-    // println!("{}", num.pow(exp));
-    // let p = generate_prime();
-    // println!("p: {}", p);
-    generate_keys();
-    let e = BigInt::<100>::from_num(65537);
-    let d = BigInt::<50>::from_hex_string("0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000C506654D56C8D315D25423A243D2AB59491B05A279790745857A48224A1F54090B5A39E436668678D74D8F5BD58CDA2B43ADBA1434F1499315A7B8C8E2AB6004195F840E4EEDDEC6C50E806BA9C698A988A93A399DB5670017A2382BCB9F96CD5ED29ADF5ED807AABADAB6A63E96046B0560CFB3B60C29F08DDA8C23ED3DB2FF3C1E849E0F2F4351172F6B3684C3B6E368076B53A3D34A721912D5C1C6D50F76D4941F6BA82CBD04C5DB98260DB0E5A1FA29C11377F15B527E3CF7DCBAA75CE5D7CB70D34D2FA138209DD8855280F2FA7751E351C687CCB84E9A316BE4473916B3F83A2635A80424AA1AC46ED127708FC87BB87FEF60127F95583FB40CE29E30C99006CFD48A344FA585FE1425DD04544E4C29E99B5680312F0166495FAC5F3060780E78CB9E960246ECEABC006BD63E870AF04078C84CFE9261AA810D948151D339905175C2AE5EF9BFF9CAA18D545DA169FD27B08921E658AB8BB5E2AB3E7").resize::<100>();
-    let n = BigInt::<50>::from_hex_string("000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000620783A73E602342B24B53A556790669DC3F67203AC361186381F65288ABD599D8FB04ECFC3629E2AC01816CE4A2F9982A56E8E239325B86599407DE5852591EF1881E7063407940DBD469E70CAD16280601C731518C4CC99036A2C1059A998C25709A55A87282546E66FE6680E30231BDF184DE19C74FBD70239FE8D9FCEC03C2CC55C1C0AECC05F5B547C423BFDEFD56D385F7F9BB65F5A6DB49E0CDC6FB4FE0ECCE4ACD20955C32BA2AF34654A029255546602D397AF07785048C265CA4EAA6E470BCA3B1234FCE27BD3B90E30A3723726D7BF2E9E6FC926CC2C53C97218FA9B3B700E50A098DEF527528DDABCEE389F17AFEE46D1CBD9C9CC431EAC5CAEE133DBA10FA14AEF7EF7E4A5B41590E595A92FE0ACEFF9A5110BBAF5CAE2A42C17D8F93123B6256F2BDACC2800E2221E4CA9BE806B87AC368D802E1787545DEBE79C5638D9B07FAA6572C0B125F4ADBC2E20CFFCD5928FB7489B758D3BAA9E595").resize::<100>();
+    let rsa_keys = rsa::generate_keys();
+    let public_key = rsa_keys.0;
+    let private_key = rsa_keys.1;
+    println!("Public Key:\nn = {}\ne = {}", public_key.n, public_key.e);
+    println!("Private Key:\np = {}\nq = {}\ndp = {}\ndq = {}\nqinv = {}", 
+             private_key.p, private_key.q, private_key.dp, private_key.dq, private_key.qinv);
+    
+    let message = BigInt::<1>::from_hex_string("123456789ABCDEF0");
+    println!("Message: {}", message);
+    let encrypted_message = rsa::encrypt(message.resize(), &public_key);
+    println!("Encrypted Message: {}", encrypted_message);
+    let decrypted_message = rsa::decrypt(encrypted_message, &private_key);
+    println!("Decrypted Message: {}", decrypted_message);
 
-    // Message
-    let m = BigIntMod::<100>::new(BigInt::<4>::from_hex_string("ABACADABA12300000CAB00000AD12398748912AA00112233748912AA00112233").resize(), n);
-
-    // Encrypted message
-    let c = m.pow(e);
-    println!("c: {}", c);
-
-    // Decrypted message
-    let m2 = c.pow(d);
-    println!("m2: {}", m2);
-}   
+    let signature = rsa::sign(message.resize(), &private_key);
+    println!("Signature: {}", signature);
+    if rsa::verify(signature, message.resize(), &public_key) {
+        println!("Signature is valid.");
+    } else {
+        println!("Signature is invalid.");
+    }
+}

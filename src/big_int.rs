@@ -348,7 +348,7 @@ impl<const T: usize> std::fmt::Display for BigInt<T> {
         for i in (0..T).rev() {
             result.push_str(&format!("{:016X}", self.get_part(i)));
         }
-        write!(f, "{}", result)
+        write!(f, "{}", result.trim_start_matches('0'))
     }
 }
 
@@ -400,10 +400,15 @@ impl<const T: usize> BigIntMod<T> {
         mu
     }
 
+    pub fn slow_reduce(&mut self) -> BigIntMod<T> {
+        let q = self.integer / self.modulo;
+        let r = self.integer - (q * self.modulo);
+        BigIntMod::new(r, self.modulo.clone())
+    }
+
     pub fn barret_reduce(&mut self) {
         let k = self.modulo.log2() / 64 + 1;
         if self.barret_mu.is_none() {
-            println!("Calculating mu");
             self.barret_mu = Some(Self::calculate_mu(self.modulo));
         }
 
