@@ -95,3 +95,12 @@ pub fn mod_inverse<const T: usize>(a: BigInt<T>, m: BigInt<T>) -> BigInt<T> {
     }
     return d0;
 }
+
+pub fn get_qr<const T: usize>(a: BigInt<T>, b: BigInt<T>) -> (BigInt<T>, BigInt<T>) {
+    if a.is_negative() || b.is_negative() {
+        panic!("a and b must be non-negative integers");
+    }
+    let q = a / b;
+    let r = a - (q * b);
+    return (q, r);
+}

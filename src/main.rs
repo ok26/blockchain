@@ -1,11 +1,6 @@
-use big_int::{BigInt, BigIntMod};
+use math::big_int::BigInt;
 
-mod block;
-mod merkle;
-mod transaction;
-mod common;
-mod big_int;
-mod random;
+mod blockchain;
 mod rsa;
 mod math;
 
@@ -14,8 +9,8 @@ fn main() {
     let public_key = rsa_keys.0;
     let private_key = rsa_keys.1;
     println!("Public Key:\nn = {}\ne = {}", public_key.n, public_key.e);
-    println!("Private Key:\np = {}\nq = {}\ndp = {}\ndq = {}\nqinv = {}", 
-             private_key.p, private_key.q, private_key.dp, private_key.dq, private_key.qinv);
+    println!("Private Key:\np = {}\nq = {}\ndp = {}\ndq = {}\nqinv = {}\nqpp = {}", 
+             private_key.p, private_key.q, private_key.dp, private_key.dq, private_key.qinv, private_key.qpp);
     
     let message = BigInt::<1>::from_hex_string("123456789ABCDEF0");
     println!("Message: {}", message);

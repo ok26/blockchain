@@ -8,7 +8,8 @@ use std::ops::{
     Not,
     Neg,
 };
-use crate::random::get_nrandom_u64;
+
+use super::random::get_nrandom_u64;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BigInt<const T: usize = 128> {

@@ -1,10 +1,7 @@
-use crate::{
-    transaction::Transaction,
-    common::*
-};
+use super::transaction::Transaction;
 
 pub struct MerkleTree {
-    root_hash: HashBytes,
+    root_hash: Vec<u8>,
     transactions: Vec<Transaction>
 }
 

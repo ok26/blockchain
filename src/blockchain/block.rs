@@ -1,13 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::common::*;
 
 
 // Gör om till lib och ha konstanter o sånt skit i lib filen, bättre om funktioner importans sen låångt senare.
 //
-
-
-
-
 
 fn now() -> u128 {
     let duration = SystemTime::now()
@@ -19,16 +14,16 @@ fn now() -> u128 {
 pub struct BlockHeader {
     pub index: u32,
     pub timestamp: u128,
-    pub hash: HashBytes,
-    pub previous_block_hash: HashBytes,
+    pub hash: Vec<u8>,
+    pub previous_block_hash: Vec<u8>,
     pub nonce: u64,
-    pub merkle_root_hash: HashBytes,
+    pub merkle_root_hash: Vec<u8>,
     pub difficulty: u128
 }
 
 pub struct Block {
     header: BlockHeader,
-    merkle: Vec<HashBytes> 
+    merkle: Vec<Vec<u8>> 
 }
 
 impl Block {

@@ -19,9 +19,3 @@ pub fn get_nrandom_u64(n: usize) -> Vec<u64> {
     }
     result
 }
-
-pub fn get_random_u64() -> u64 {
-    let mut bytes = [0u8; 8];
-    get_random_bytes(&mut bytes).expect("Failed to get random bytes");
-    u64::from_ne_bytes(bytes)
-}
