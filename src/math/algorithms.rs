@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::BigInt;
 
 pub fn abs<const T: usize>(a: BigInt<T>) -> BigInt<T> {
@@ -103,4 +105,80 @@ pub fn get_qr<const T: usize>(a: BigInt<T>, b: BigInt<T>) -> (BigInt<T>, BigInt<
     let q = a / b;
     let r = a - (q * b);
     return (q, r);
+}
+
+const BASE64_CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+pub fn base64_encode(data: &[u8]) -> String {
+    let mut encoded = String::new();
+    let mut i = 0;
+    while i < data.len() {
+        let b0 = data[i];
+        let b1 = if i + 1 < data.len() { data[i + 1] } else { 0 };
+        let b2 = if i + 2 < data.len() { data[i + 2] } else { 0 };
+
+        let triple = ((b0 as u32) << 16) | ((b1 as u32) << 8) | (b2 as u32);
+
+        encoded.push(BASE64_CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        encoded.push(BASE64_CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if i + 1 < data.len() {
+            encoded.push(BASE64_CHARS[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+
+        if i + 2 < data.len() {
+            encoded.push(BASE64_CHARS[(triple & 0x3F) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+
+        i += 3;
+    }
+    encoded
+}
+
+pub fn base64_decode(s: &str) -> Vec<u8> {
+    let bytes = s.as_bytes();
+    if bytes.len() % 4 != 0 {
+        panic!("Invalid Base64 input length");
+    }
+
+    let mut decoded = Vec::new();
+
+    let mut char_to_val = [255u8; 256];
+    for (i, &c) in BASE64_CHARS.iter().enumerate() {
+        char_to_val[c as usize] = i as u8;
+    }
+    char_to_val[b'=' as usize] = 0;
+
+    let mut i = 0;
+    while i < bytes.len() {
+        let sextet0 = char_to_val[bytes[i] as usize];
+        let sextet1 = char_to_val[bytes[i + 1] as usize];
+        let sextet2 = char_to_val[bytes[i + 2] as usize];
+        let sextet3 = char_to_val[bytes[i + 3] as usize];
+
+        if sextet0 == 255 || sextet1 == 255 || sextet2 == 255 || sextet3 == 255 {
+            panic!("Invalid Base64 character");
+        }
+
+        let triple = ((sextet0 as u32) << 18)
+            | ((sextet1 as u32) << 12)
+            | ((sextet2 as u32) << 6)
+            | (sextet3 as u32);
+
+        decoded.push(((triple >> 16) & 0xFF) as u8);
+
+        if bytes[i + 2] != b'=' {
+            decoded.push(((triple >> 8) & 0xFF) as u8);
+        }
+        if bytes[i + 3] != b'=' {
+            decoded.push((triple & 0xFF) as u8);
+        }
+
+        i += 4;
+    }
+
+    decoded
 }

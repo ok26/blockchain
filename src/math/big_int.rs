@@ -9,7 +9,7 @@ use std::ops::{
     Neg,
 };
 
-use super::random::get_nrandom_u64;
+use super::{algorithms, random::get_nrandom_u64};
 
 #[derive(Debug, Copy, Clone)]
 pub struct BigInt<const T: usize = 128> {
@@ -118,6 +118,45 @@ impl<const T: usize> BigInt<T> {
             carry = (prod >> 64) as u64;
         }
         result
+    }
+
+    pub fn to_bytes_be(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(T * 8);
+
+        for &part in self.bytes.iter().rev() {
+            bytes.extend_from_slice(&part.to_be_bytes());
+        }
+
+        while bytes.first() == Some(&0) && bytes.len() > 1 {
+            bytes.remove(0);
+        }
+        bytes
+    }
+
+    pub fn from_bytes_be(bytes: &[u8]) -> Self {
+        let mut parts = [0u64; T];
+        let mut byte_index = bytes.len();
+
+        for limb_i in 0..T {
+            if byte_index == 0 {
+                break;
+            }
+
+            let start = if byte_index >= 8 { byte_index - 8 } else { 0 };
+            let len = byte_index - start;
+            let mut part_bytes = [0u8; 8];
+
+            part_bytes[8 - len..].copy_from_slice(&bytes[start..byte_index]);
+
+            parts[limb_i] = u64::from_be_bytes(part_bytes);
+            byte_index = start;
+        }
+
+        Self { bytes: parts }
+    }
+
+    pub fn get_base64(&self) -> String {
+        algorithms::base64_encode(&self.to_bytes_be())
     }
 }
 
@@ -322,12 +361,8 @@ impl<const FROM: usize> BigInt<FROM> {
 
 impl<const T: usize> std::fmt::Display for BigInt<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut result = String::new();
-        for i in (0..T).rev() {
-            result.push_str(&format!("{:016X}", self.get_part(i)));
-        }
-        write!(f, "{}", result.trim_start_matches('0'))
-    }
+        write!(f, "{}", self.get_base64())
+     }
 }
 
 

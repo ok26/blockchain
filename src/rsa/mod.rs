@@ -1,5 +1,5 @@
 use prime_gen::generate_primes;
-use crate::math::{algorithms::{gcd, get_qr, lcm, mod_inverse}, big_int::{BigInt, BigIntMod}};
+use crate::math::{algorithms::{self, gcd, get_qr, lcm, mod_inverse}, big_int::{BigInt, BigIntMod}};
 
 mod prime_gen;
 
@@ -17,6 +17,100 @@ pub struct RSAPrivateKey {
     pub dq: BigInt<KEY_SIZE>,
     pub qinv: BigInt<KEY_SIZE>,
     pub qpp: BigInt<KEY_SIZE>,
+}
+ 
+impl RSAPrivateKey {
+    pub fn load(file: &str) -> Self {
+        let base64 = std::fs::read_to_string(file).expect("Failed to read file");
+        let bytes = algorithms::base64_decode(&base64);
+        let mut index = 0;
+        let mut fields = Vec::with_capacity(6);
+
+        for _ in 0..6 {
+            let len = u16::from_be_bytes([
+                bytes[index],
+                bytes[index + 1],
+            ]) as usize;
+            index += 2;
+            let field = BigInt::<KEY_SIZE>::from_bytes_be(&bytes[index..index + len]);
+            fields.push(field);
+            index += len;
+        }
+
+        RSAPrivateKey {
+            p: fields[0].clone(),
+            q: fields[1].clone(),
+            dp: fields[2].clone(),
+            dq: fields[3].clone(),
+            qinv: fields[4].clone(),
+            qpp: fields[5].clone(),
+        }
+    }
+
+    pub fn save(&self, file: &str) {
+        let fields = [
+            &self.p,
+            &self.q,
+            &self.dp,
+            &self.dq,
+            &self.qinv,
+            &self.qpp,
+        ];
+
+        let mut bytes: Vec<u8> = Vec::new();
+        for field in fields.iter() {
+            let field_bytes = field.to_bytes_be();
+            let len = field_bytes.len() as u16;
+            bytes.extend_from_slice(&len.to_be_bytes());
+            bytes.extend_from_slice(&field_bytes);
+        }
+
+        let out = algorithms::base64_encode(&bytes);
+        std::fs::write(file, &out).expect("Failed to write file");
+    }
+}
+
+impl RSAPublicKey {
+    pub fn load(file: &str) -> Self {
+        let base64 = std::fs::read_to_string(file).expect("Failed to read file");
+        let bytes = algorithms::base64_decode(&base64);
+        let mut index = 0;
+        let mut fields = Vec::with_capacity(2);
+
+        for _ in 0..2 {
+            let len = u16::from_be_bytes([
+                bytes[index],
+                bytes[index + 1],
+            ]) as usize;
+            index += 2;
+            let field = BigInt::<KEY_SIZE>::from_bytes_be(&bytes[index..index + len]);
+            fields.push(field);
+            index += len;
+        }
+
+        RSAPublicKey {
+            n: fields[0].clone(),
+            e: fields[1].clone(),
+        }
+    }
+
+    pub fn save(&self, file: &str) {
+        let fields = [
+            &self.n,
+            &self.e,
+        ];
+
+        let mut bytes: Vec<u8> = Vec::new();
+        for field in fields.iter() {
+            let field_bytes = field.to_bytes_be();
+            let len = field_bytes.len() as u16;
+            bytes.extend_from_slice(&len.to_be_bytes());
+            bytes.extend_from_slice(&field_bytes);
+        }
+
+        let out = algorithms::base64_encode(&bytes);
+        std::fs::write(file, &out).expect("Failed to write file");
+    }
 }
 
 pub fn generate_keys() -> (RSAPublicKey, RSAPrivateKey) {
