@@ -29,9 +29,14 @@ impl<const T: usize> BigInt<T> {
     }
 
     pub fn from_hex_string(hex_string: &str) -> Self {
-        if hex_string.len() != T * 16 {
-            panic!("Hex string length must be {} characters", T * 16);
+        let mut hex_string = hex_string.to_string();
+        if hex_string.len() < T * 16 {
+            let padding = "0".repeat(T * 16 - hex_string.len());
+            hex_string = padding + &hex_string;
+        } else if hex_string.len() > T * 16 {
+            hex_string = hex_string[hex_string.len() - T * 16..].to_string();
         }
+
         let mut bytes = [0; T];
         let mut index = 0;
         while index < hex_string.len() {
@@ -58,7 +63,7 @@ impl<const T: usize> BigInt<T> {
         BigInt { bytes }
     }
 
-    fn set_part(&mut self, index: usize, value: u64) {
+    pub fn set_part(&mut self, index: usize, value: u64) {
         if index < T {
             self.bytes[index] = value;
         }

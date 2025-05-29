@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::BigInt;
+use super::big_int::BigInt;
 
 pub fn abs<const T: usize>(a: BigInt<T>) -> BigInt<T> {
     if a.is_negative() {

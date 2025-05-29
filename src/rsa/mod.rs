@@ -18,7 +18,7 @@ pub struct RSAPrivateKey {
     pub qinv: BigInt<KEY_SIZE>,
     pub qpp: BigInt<KEY_SIZE>,
 }
- 
+
 impl RSAPrivateKey {
     pub fn load(file: &str) -> Self {
         let base64 = std::fs::read_to_string(file).expect("Failed to read file");
