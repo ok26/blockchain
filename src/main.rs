@@ -24,7 +24,6 @@ fn main() {
     let sha256_manipulated_hash = Sha256::hash(&manipulated_data);
     println!("Manipulated SHA-256 Hash: {}", sha256_manipulated_hash.digest());
     let manipulated_big_int_data = BigInt::from_hex_string(&sha256_manipulated_hash.digest());
-    let manipulated_signature = rsa::sign(manipulated_big_int_data, &private_key);
-    let is_manipulated_valid = rsa::verify(manipulated_signature, big_int_data, &public_key);
+    let is_manipulated_valid = rsa::verify(signature, manipulated_big_int_data, &public_key);
     println!("Manipulated signature valid: {}", is_manipulated_valid);
 }
