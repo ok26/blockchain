@@ -1,9 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
-// Gör om till lib och ha konstanter o sånt skit i lib filen, bättre om funktioner importans sen låångt senare.
-//
-
 fn now() -> u128 {
     let duration = SystemTime::now()
         .duration_since(UNIX_EPOCH)

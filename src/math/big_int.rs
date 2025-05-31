@@ -21,11 +21,15 @@ impl<const T: usize> BigInt<T> {
         Self { bytes: [0; T] }
     }
 
-    pub fn from_num(num: u128) -> Self {
+    pub const fn from_num(num: u128) -> Self {
         let mut bytes = [0; T];
         bytes[0] = (num as u128 % (u64::MAX as u128 + 1)) as u64;
         bytes[1] = (num >> 64) as u64;
         BigInt { bytes }
+    }
+
+    pub const fn from_parts(parts: [u64; T]) -> Self {
+        BigInt { bytes: parts }
     }
 
     pub fn from_hex_string(hex_string: &str) -> Self {
@@ -48,7 +52,7 @@ impl<const T: usize> BigInt<T> {
     }
 
     pub fn rand(low: usize, high: usize) -> Self {
-        if high < low || low >= T || high >= T {
+        if high < low || low > T || high > T {
             panic!("Invalid range for random number generation");
         }
 
@@ -69,7 +73,7 @@ impl<const T: usize> BigInt<T> {
         }
     }
 
-    fn get_part(&self, index: usize) -> u64 {
+    pub fn get_part(&self, index: usize) -> u64 {
         if index < T { self.bytes[index] } 
         else { 0 }
     }
@@ -379,15 +383,23 @@ pub struct BigIntMod<const T: usize> {
 }
 
 impl<const T: usize> BigIntMod<T> {
-    pub fn new(integer: BigInt<T>, modulo: BigInt<T>) -> Self {
+    pub const fn new(integer: BigInt<T>, modulo: BigInt<T>) -> Self {
         let barret_mu = None;
         Self { integer, modulo, barret_mu }
+    }
+
+    pub fn new_with_mu(integer: BigInt<T>, modulo: BigInt<T>, mu: BigInt<T>) -> Self {
+        let mut result = Self::new(integer, modulo);
+        result.barret_mu = Some(mu);
+        result
     }
 
     pub fn new_reduce(integer: BigInt<T>, modulo: BigInt<T>, mu: BigInt<T>) -> Self {
         let mut result = Self::new(integer, modulo);
         result.barret_mu = Some(mu);
-        result.barret_reduce();
+        if integer >= modulo {
+            result.barret_reduce();
+        }
         result
     }
 
@@ -412,9 +424,14 @@ impl<const T: usize> BigIntMod<T> {
         result
     }
 
+    pub fn square(&self) -> Self {
+        *self * *self
+    }
+
     pub fn calculate_mu(modulo: BigInt<T>) -> BigInt<T> {
         let k = modulo.log2() / 64 + 1;
         let mu = (BigInt::<T>::from_num(1) << (2 * k * 64)) / modulo;
+        println!("Debug: Calculating mu, {}", mu);
         mu
     }
 
@@ -435,14 +452,19 @@ impl<const T: usize> BigIntMod<T> {
         let q2 = q1 * mu;
         let q3 = q2 >> (64 * (k + 1));
 
-        let r1 = self.integer.mod_parts(1 + k as usize);
+        let r1 = self.integer.mod_parts(k as usize + 1);
         let r2 = (q3 * self.modulo).mod_parts(1 + k as usize);
         let mut r = r1 - r2;
         if r.is_negative() {
             r = r + (BigInt::<T>::from_num(1) << (64 * (k + 1)));
         }
-        while r >= self.modulo {
+        let mut m = 2;
+        while r >= self.modulo && m != 0 {
             r = r - self.modulo;
+            m = m - 1;
+        }
+        if r >= self.modulo {
+            panic!("Barret reduction failed: result is greater than or equal to modulo");
         }
         self.integer = r;
     }
@@ -461,7 +483,15 @@ impl<const T: usize> Add<BigIntMod<T>> for BigIntMod<T> {
         if result >= self.modulo {
             result = result - self.modulo;
         }
-        BigIntMod::new(result, self.modulo)
+        if let Some(mu) = self.barret_mu {
+            BigIntMod::new_with_mu(result, self.modulo, mu)
+        }
+        else if let Some(mu) = rhs.barret_mu {
+            BigIntMod::new_with_mu(result, self.modulo, mu)
+        }
+        else {
+            BigIntMod::new(result, self.modulo)
+        }
     }
 }
 
@@ -477,7 +507,15 @@ impl<const T: usize> Sub<BigIntMod<T>> for BigIntMod<T> {
         if result.is_negative() {
             result = result + self.modulo;
         }
-        BigIntMod::new(result, self.modulo)
+        if let Some(mu) = self.barret_mu {
+            BigIntMod::new_with_mu(result, self.modulo, mu)
+        }
+        else if let Some(mu) = rhs.barret_mu {
+            BigIntMod::new_with_mu(result, self.modulo, mu)
+        }
+        else {
+            BigIntMod::new(result, self.modulo)
+        }
     }
 }
 
@@ -495,6 +533,12 @@ impl<const T: usize> Mul<BigIntMod<T>> for BigIntMod<T> {
         else { None };
         result.barret_reduce();
         result
+    }
+}
+
+impl<const FROM: usize> BigIntMod<FROM> {
+    pub fn resize<const TO: usize>(self) -> BigIntMod<TO> {
+        BigIntMod::<TO>::new(self.integer.resize(), self.modulo.resize())
     }
 }
 
