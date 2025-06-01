@@ -92,8 +92,10 @@ pub fn mod_inverse<const T: usize>(a: BigInt<T>, m: BigInt<T>) -> BigInt<T> {
         panic!("No inverse exists");
     }
 
-    if d0.is_negative() {
+    let mut max_loop = 5;
+    while d0.is_negative() && max_loop != 0 {
         d0 = d0 + m;
+        max_loop -= 1;
     }
     return d0;
 }
@@ -182,3 +184,4 @@ pub fn base64_decode(s: &str) -> Vec<u8> {
 
     decoded
 }
+

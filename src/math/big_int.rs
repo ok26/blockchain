@@ -164,8 +164,27 @@ impl<const T: usize> BigInt<T> {
         Self { bytes: parts }
     }
 
+    pub fn to_bits(&self) -> Vec<bool> {
+        let mut bits = Vec::with_capacity(T * 64);
+        for &part in self.bytes.iter() {
+            for i in 0..64 {
+                bits.push((part >> i) & 1 != 0);
+            }
+        }
+        bits
+    }
+
     pub fn get_base64(&self) -> String {
         algorithms::base64_encode(&self.to_bytes_be())
+    }
+
+    pub fn get_hex(&self) -> String {
+        self.bytes.iter()
+            .rev()
+            .map(|&part| format!("{:016x}", part))
+            .collect::<String>()
+            .trim_start_matches('0')
+            .to_string()
     }
 }
 
@@ -397,9 +416,7 @@ impl<const T: usize> BigIntMod<T> {
     pub fn new_reduce(integer: BigInt<T>, modulo: BigInt<T>, mu: BigInt<T>) -> Self {
         let mut result = Self::new(integer, modulo);
         result.barret_mu = Some(mu);
-        if integer >= modulo {
-            result.barret_reduce();
-        }
+        result.barret_reduce();
         result
     }
 
