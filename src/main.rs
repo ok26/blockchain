@@ -4,9 +4,9 @@ mod sha256;
 mod ecdsa;
 
 fn main() {
-    let (public_key_ecc, private_key_ecc) = ecdsa::generate_keypair();
-    println!("ECC Public Key: {}", public_key_ecc);
-    println!("ECC Private Key: {}", private_key_ecc);
+    let (public_key_ecdsa, private_key_ecdsa) = ecdsa::generate_keypair();
+    println!("ECDSA Public Key: {}", public_key_ecdsa);
+    println!("ECDSA Private Key: {}", private_key_ecdsa);
 
     let (public_key_rsa, private_key_rsa) = rsa::generate_keys();
     println!("RSA Public Key: {}", public_key_rsa);
@@ -15,29 +15,29 @@ fn main() {
     let message = b"Hello, world!";
     println!("Message: {}", String::from_utf8_lossy(message));
 
-    let signature_ecc = ecdsa::sign(message, &private_key_ecc);
+    let signature_ecc = ecdsa::sign(message, &private_key_ecdsa);
     println!("ECC Signature: {}", signature_ecc);
 
     let signature_rsa = rsa::sign(message, &private_key_rsa);
     println!("RSA Signature: {}", signature_rsa);
 
-    let is_valid_ecc = ecdsa::verify(signature_ecc, message, &public_key_ecc);
+    let is_valid_ecc = ecdsa::verify(signature_ecc, message, &public_key_ecdsa);
     println!("ECC Signature Valid: {}", is_valid_ecc);
     let is_valid_rsa = rsa::verify(signature_rsa, message, &public_key_rsa);
     println!("RSA Signature Valid: {}", is_valid_rsa);
 
-    public_key_ecc.save("example_keys/public_key_ecc.txt");
-    private_key_ecc.save("example_keys/private_key_ecc.txt");
+    public_key_ecdsa.save("example_keys/public_key_ecdsa.txt");
+    private_key_ecdsa.save("example_keys/private_key_ecdsa.txt");
     public_key_rsa.save("example_keys/public_key_rsa.txt");
     private_key_rsa.save("example_keys/private_key_rsa.txt");
 
-    let public_key_ecc_test = ecdsa::ECDSAPublicKey::load("example_keys/public_key_ecc.txt");
-    let private_key_ecc_test = ecdsa::ECDSAPrivateKey::load("example_keys/private_key_ecc.txt");
+    let public_key_ecdsa_test = ecdsa::ECDSAPublicKey::load("example_keys/public_key_ecdsa.txt");
+    let private_key_ecdsa_test = ecdsa::ECDSAPrivateKey::load("example_keys/private_key_ecdsa.txt");
     let public_key_rsa_test = rsa::RSAPublicKey::load("example_keys/public_key_rsa.txt");
     let private_key_rsa_test = rsa::RSAPrivateKey::load("example_keys/private_key_rsa.txt");
 
-    assert_eq!(public_key_ecc, public_key_ecc_test);
-    assert_eq!(private_key_ecc, private_key_ecc_test);
+    assert_eq!(public_key_ecdsa, public_key_ecdsa_test);
+    assert_eq!(private_key_ecdsa, private_key_ecdsa_test);
     assert_eq!(public_key_rsa, public_key_rsa_test);
     assert_eq!(private_key_rsa, private_key_rsa_test);
 }
