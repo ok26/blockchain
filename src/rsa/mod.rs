@@ -1,5 +1,5 @@
 use prime_gen::generate_primes;
-use crate::{math::{algorithms, big_int::{BigInt, BigIntMod}}, sha256::Sha256};
+use crate::{math::{algorithms, big_int::{BigInt, BigIntMod}}, sha256::Sha256, util};
 
 mod prime_gen;
 
@@ -27,9 +27,9 @@ pub struct RSAPrivateKey {
 impl RSAPrivateKey {
     pub fn load(file: &str) -> Self {
         let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
-        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let der_encoding = util::base64_decode(&base64_encoded);
         let mut bytes = der_encoding.as_slice();
-        let fields = algorithms::der_decode::<KEY_SIZE>(&mut bytes);
+        let fields = util::der_decode::<KEY_SIZE>(&mut bytes);
         assert_eq!(fields.len(), 8, "Invalid DER encoding for RSA private key");
         RSAPrivateKey {
             n: fields[0].clone(),
@@ -45,7 +45,7 @@ impl RSAPrivateKey {
 
     pub fn save(&self, file: &str) {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         std::fs::write(file, base64_encoded).expect("Unable to write file");
     }
 
@@ -60,14 +60,14 @@ impl RSAPrivateKey {
             &self.dq,
             &self.qinv,
         ];
-        algorithms::der_encode(&fields)
+        util::der_encode(&fields)
     }
 }
 
 impl std::fmt::Display for RSAPublicKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         write!(f, "{}", base64_encoded)
     }
 }
@@ -75,9 +75,9 @@ impl std::fmt::Display for RSAPublicKey {
 impl RSAPublicKey {
     pub fn load(file: &str) -> Self {
         let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
-        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let der_encoding = util::base64_decode(&base64_encoded);
         let mut bytes = der_encoding.as_slice();
-        let fields = algorithms::der_decode::<KEY_SIZE>(&mut bytes);
+        let fields = util::der_decode::<KEY_SIZE>(&mut bytes);
         assert_eq!(fields.len(), 2, "Invalid DER encoding for RSA public key");
         RSAPublicKey {
             n: fields[0].clone(),
@@ -87,20 +87,20 @@ impl RSAPublicKey {
 
     pub fn save(&self, file: &str) {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         std::fs::write(file, base64_encoded).expect("Unable to write file");
     }
 
     pub fn get_der_encoding(&self) -> Vec<u8> {
         let fields = vec![&self.n, &self.e];
-        algorithms::der_encode(&fields)
+        util::der_encode(&fields)
     }
 }
 
 impl std::fmt::Display for RSAPrivateKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         write!(f, "{}", base64_encoded)
     }
 }

@@ -3,7 +3,7 @@ pub mod secp256k1;
 
 use point::AffinePoint;
 use secp256k1::BARRET_MU_N;
-use crate::{math::{algorithms, big_int::{BigInt, BigIntMod}}, sha256::Sha256};
+use crate::{math::{big_int::{BigInt, BigIntMod}, algorithms}, sha256::Sha256, util};
 
 #[derive(PartialEq, Debug)]
 pub struct ECDSAPrivateKey {
@@ -18,42 +18,42 @@ pub struct ECDSAPublicKey {
 impl ECDSAPrivateKey {
     pub fn load(file: &str) -> Self {
         let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
-        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let der_encoding = util::base64_decode(&base64_encoded);
         let mut bytes = der_encoding.as_slice();
-        let fields = algorithms::der_decode::<4>(&mut bytes);
+        let fields = util::der_decode::<4>(&mut bytes);
         assert_eq!(fields.len(), 1, "Invalid DER encoding for ECDSA private key");
         ECDSAPrivateKey { key: fields[0].clone() }
     }
 
     pub fn save(&self, file: &str) {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         std::fs::write(file, base64_encoded).expect("Unable to write file");
     }
 
     pub fn get_der_encoding(&self) -> Vec<u8> {
-        algorithms::der_encode(&[&self.key])
+        util::der_encode(&[&self.key])
     }
 }
 
 impl ECDSAPublicKey {
     pub fn load(file: &str) -> Self {
         let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
-        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let der_encoding = util::base64_decode(&base64_encoded);
         let mut bytes = der_encoding.as_slice();
-        let fields = algorithms::der_decode::<4>(&mut bytes);
+        let fields = util::der_decode::<4>(&mut bytes);
         assert_eq!(fields.len(), 2, "Invalid DER encoding for ECDSA public key");
         ECDSAPublicKey { key: AffinePoint::new(fields[0].clone(), fields[1].clone()) }
     }
 
     pub fn save(&self, file: &str) {
         let der_encoding = self.get_der_encoding();
-        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        let base64_encoded = util::base64_encode(&der_encoding);
         std::fs::write(file, base64_encoded).expect("Unable to write file");
     }
 
     pub fn get_der_encoding(&self) -> Vec<u8> {
-        algorithms::der_encode(&[&self.key.x, &self.key.y])
+        util::der_encode(&[&self.key.x, &self.key.y])
     }
 }
 

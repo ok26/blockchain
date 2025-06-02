@@ -9,7 +9,8 @@ use std::ops::{
     Neg,
 };
 
-use super::{algorithms, random::get_nrandom_u64};
+use super::random::get_nrandom_u64;
+use crate::util;
 
 #[derive(Debug, Copy, Clone)]
 pub struct BigInt<const T: usize = 128> {
@@ -175,7 +176,7 @@ impl<const T: usize> BigInt<T> {
     }
 
     pub fn get_base64(&self) -> String {
-        algorithms::base64_encode(&self.to_bytes_be())
+        util::base64_encode(&self.to_bytes_be())
     }
 
     pub fn get_hex(&self) -> String {

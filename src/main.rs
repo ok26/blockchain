@@ -2,6 +2,7 @@ mod rsa;
 mod math;
 mod sha256;
 mod ecdsa;
+mod util;
 mod blockchain;
 
 fn main() {
