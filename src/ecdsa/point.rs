@@ -1,8 +1,8 @@
 use crate::math::{algorithms::mod_inverse, big_int::{BigInt, BigIntMod}};
 use core::ops::Add;
-use crate::ecc::secp256k1::*;
+use crate::ecdsa::secp256k1::*;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct AffinePoint {
     pub x: BigInt<4>,
     pub y: BigInt<4>,
@@ -195,7 +195,7 @@ impl std::fmt::Display for AffinePoint {
         if self.is_infinity() {
             write!(f, "AffinePoint(infinity)")
         } else {
-            write!(f, "AffinePoint({}, {})", self.x.get_hex(), self.y.get_hex())
+            write!(f, "04{}{}", self.x.get_hex(), self.y.get_hex())
         }
     }
 }

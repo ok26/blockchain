@@ -448,7 +448,6 @@ impl<const T: usize> BigIntMod<T> {
     pub fn calculate_mu(modulo: BigInt<T>) -> BigInt<T> {
         let k = modulo.log2() / 64 + 1;
         let mu = (BigInt::<T>::from_num(1) << (2 * k * 64)) / modulo;
-        println!("Debug: Calculating mu, {}", mu);
         mu
     }
 

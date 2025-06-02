@@ -1,93 +1,84 @@
 use prime_gen::generate_primes;
-use crate::math::{algorithms::{self, gcd, get_qr, lcm, mod_inverse}, big_int::{BigInt, BigIntMod}};
+use crate::{math::{algorithms, big_int::{BigInt, BigIntMod}}, sha256::Sha256};
 
 mod prime_gen;
 
 const KEY_SIZE: usize = 50;
 const MILLER_ROUND: usize = 16;
 
+#[derive(PartialEq, Debug)]
 pub struct RSAPublicKey {
     pub n: BigInt<KEY_SIZE>,
     pub e: BigInt<KEY_SIZE>,
 }
+
+#[derive(PartialEq, Debug)]
 pub struct RSAPrivateKey {
+    pub n: BigInt<KEY_SIZE>,
+    pub e: BigInt<KEY_SIZE>,
+    pub d: BigInt<KEY_SIZE>,
     pub p: BigInt<KEY_SIZE>,
     pub q: BigInt<KEY_SIZE>,
     pub dp: BigInt<KEY_SIZE>,
     pub dq: BigInt<KEY_SIZE>,
     pub qinv: BigInt<KEY_SIZE>,
-    pub qpp: BigInt<KEY_SIZE>,
 }
 
 impl RSAPrivateKey {
     pub fn load(file: &str) -> Self {
-        let base64 = std::fs::read_to_string(file).expect("Failed to read file");
-        let bytes = algorithms::base64_decode(&base64);
-        let mut index = 0;
-        let mut fields = Vec::with_capacity(6);
-
-        for _ in 0..6 {
-            let len = u16::from_be_bytes([
-                bytes[index],
-                bytes[index + 1],
-            ]) as usize;
-            index += 2;
-            let field = BigInt::<KEY_SIZE>::from_bytes_be(&bytes[index..index + len]);
-            fields.push(field);
-            index += len;
-        }
-
+        let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
+        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let mut bytes = der_encoding.as_slice();
+        let fields = algorithms::der_decode::<KEY_SIZE>(&mut bytes);
+        assert_eq!(fields.len(), 8, "Invalid DER encoding for RSA private key");
         RSAPrivateKey {
-            p: fields[0].clone(),
-            q: fields[1].clone(),
-            dp: fields[2].clone(),
-            dq: fields[3].clone(),
-            qinv: fields[4].clone(),
-            qpp: fields[5].clone(),
+            n: fields[0].clone(),
+            e: fields[1].clone(),
+            d: fields[2].clone(),
+            p: fields[3].clone(),
+            q: fields[4].clone(),
+            dp: fields[5].clone(),
+            dq: fields[6].clone(),
+            qinv: fields[7].clone(),
         }
     }
 
     pub fn save(&self, file: &str) {
-        let fields = [
+        let der_encoding = self.get_der_encoding();
+        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        std::fs::write(file, base64_encoded).expect("Unable to write file");
+    }
+
+    pub fn get_der_encoding(&self) -> Vec<u8> {
+        let fields = vec![
+            &self.n,
+            &self.e,
+            &self.d,
             &self.p,
             &self.q,
             &self.dp,
             &self.dq,
             &self.qinv,
-            &self.qpp,
         ];
+        algorithms::der_encode(&fields)
+    }
+}
 
-        let mut bytes: Vec<u8> = Vec::new();
-        for field in fields.iter() {
-            let field_bytes = field.to_bytes_be();
-            let len = field_bytes.len() as u16;
-            bytes.extend_from_slice(&len.to_be_bytes());
-            bytes.extend_from_slice(&field_bytes);
-        }
-
-        let out = algorithms::base64_encode(&bytes);
-        std::fs::write(file, &out).expect("Failed to write file");
+impl std::fmt::Display for RSAPublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let der_encoding = self.get_der_encoding();
+        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        write!(f, "{}", base64_encoded)
     }
 }
 
 impl RSAPublicKey {
     pub fn load(file: &str) -> Self {
-        let base64 = std::fs::read_to_string(file).expect("Failed to read file");
-        let bytes = algorithms::base64_decode(&base64);
-        let mut index = 0;
-        let mut fields = Vec::with_capacity(2);
-
-        for _ in 0..2 {
-            let len = u16::from_be_bytes([
-                bytes[index],
-                bytes[index + 1],
-            ]) as usize;
-            index += 2;
-            let field = BigInt::<KEY_SIZE>::from_bytes_be(&bytes[index..index + len]);
-            fields.push(field);
-            index += len;
-        }
-
+        let base64_encoded = std::fs::read_to_string(file).expect("Unable to read file");
+        let der_encoding = algorithms::base64_decode(&base64_encoded);
+        let mut bytes = der_encoding.as_slice();
+        let fields = algorithms::der_decode::<KEY_SIZE>(&mut bytes);
+        assert_eq!(fields.len(), 2, "Invalid DER encoding for RSA public key");
         RSAPublicKey {
             n: fields[0].clone(),
             e: fields[1].clone(),
@@ -95,21 +86,22 @@ impl RSAPublicKey {
     }
 
     pub fn save(&self, file: &str) {
-        let fields = [
-            &self.n,
-            &self.e,
-        ];
+        let der_encoding = self.get_der_encoding();
+        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        std::fs::write(file, base64_encoded).expect("Unable to write file");
+    }
 
-        let mut bytes: Vec<u8> = Vec::new();
-        for field in fields.iter() {
-            let field_bytes = field.to_bytes_be();
-            let len = field_bytes.len() as u16;
-            bytes.extend_from_slice(&len.to_be_bytes());
-            bytes.extend_from_slice(&field_bytes);
-        }
+    pub fn get_der_encoding(&self) -> Vec<u8> {
+        let fields = vec![&self.n, &self.e];
+        algorithms::der_encode(&fields)
+    }
+}
 
-        let out = algorithms::base64_encode(&bytes);
-        std::fs::write(file, &out).expect("Failed to write file");
+impl std::fmt::Display for RSAPrivateKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let der_encoding = self.get_der_encoding();
+        let base64_encoded = algorithms::base64_encode(&der_encoding);
+        write!(f, "{}", base64_encoded)
     }
 }
 
@@ -119,29 +111,31 @@ pub fn generate_keys() -> (RSAPublicKey, RSAPrivateKey) {
     let q = primes[1].clone();
 
     let n: BigInt<{2 * KEY_SIZE}> = p.resize() * q.resize();
-    let phi: BigInt<{2 * KEY_SIZE}> = lcm(p.resize() - BigInt::from_num(1), q.resize() - BigInt::from_num(1));
+    let phi: BigInt<{2 * KEY_SIZE}> = algorithms::lcm(p.resize() - BigInt::from_num(1), q.resize() - BigInt::from_num(1));
 
     let e = BigInt::from_num(65537);
-    if e >= phi || gcd(e, phi) != BigInt::from_num(1) {
+    if e >= phi || algorithms::gcd(e, phi) != BigInt::from_num(1) {
         println!("e must be less than phi and coprime to phi, restarting RSA key generation");
         return generate_keys();
     }
 
-    let d = mod_inverse(e, phi);
+    let d = algorithms::mod_inverse(e, phi);
     let dp = BigIntMod::new(d, p.resize() - BigInt::from_num(1)).slow_reduce();
     let dq = BigIntMod::new(d, q.resize() - BigInt::from_num(1)).slow_reduce();
-    let qinv = mod_inverse(q, p);
-    
-    let qr = get_qr(q, p);
-    let mut qpp = qr.0;
-    if qr.1 != BigInt::from_num(0) {
-        qpp = qpp + BigInt::from_num(1);
-    }
-    qpp = qpp * p;
+    let qinv = algorithms::mod_inverse(q, p);
 
     return (
         RSAPublicKey { n: n.resize(), e: e.resize() },
-        RSAPrivateKey { p, q, dp: dp.integer.resize(), dq: dq.integer.resize(), qinv, qpp },
+        RSAPrivateKey { 
+            n: n.resize(),
+            e: e.resize(),
+            d: d.resize(),
+            p: p.resize(),
+            q: q.resize(),
+            dp: dp.integer.resize(),
+            dq: dq.integer.resize(),
+            qinv: qinv.resize(),
+        },
     );
 }
 
@@ -156,16 +150,24 @@ pub fn decrypt(ciphertext: BigInt<KEY_SIZE>, private_key: &RSAPrivateKey) -> Big
     m1 = m1.pow(private_key.dp.resize());
     m2 = m2.pow(private_key.dq.resize());
     if m1.integer < m2.integer {
-        m1.integer = m1.integer + private_key.qpp.resize();
+        let qr = algorithms::get_qr(private_key.q, private_key.p);
+        let mut qpp = qr.0;
+        if qr.1 != BigInt::from_num(0) {
+            qpp = qpp + BigInt::from_num(1);
+        }
+        qpp = qpp * private_key.p;
+        m1.integer = m1.integer + qpp.resize();
     }
     let h = BigIntMod::<{2 * KEY_SIZE}>::new((m1.integer - m2.integer) * private_key.qinv.resize(), private_key.p.resize()).slow_reduce();
     (m2.integer + (h.integer * private_key.q.resize())).resize()
 }
 
-pub fn sign(data: BigInt<KEY_SIZE>, private_key: &RSAPrivateKey) -> BigInt<KEY_SIZE> {
+pub fn sign(data: &[u8], private_key: &RSAPrivateKey) -> BigInt<KEY_SIZE> {
+    let data = Sha256::hash(data).to_bigint().resize();
     return decrypt(data, private_key);
 }
 
-pub fn verify(signature: BigInt<KEY_SIZE>, data: BigInt<KEY_SIZE>, public_key: &RSAPublicKey) -> bool {
+pub fn verify(signature: BigInt<KEY_SIZE>, data: &[u8], public_key: &RSAPublicKey) -> bool {
+    let data = Sha256::hash(data).to_bigint().resize();
     return encrypt(signature, public_key) == data;
 }

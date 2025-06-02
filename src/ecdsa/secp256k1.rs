@@ -1,5 +1,5 @@
 use crate::math::big_int::BigInt;
-use crate::ecc::point::AffinePoint;
+use crate::ecdsa::point::AffinePoint;
 
 pub const P: BigInt<4> = BigInt::from_parts([
     0xFFFFFFFEFFFFFC2F, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF
