@@ -49,6 +49,16 @@ impl AffinePoint {
         }
         result
     }
+
+    pub fn get_bytes(&self) -> Vec<u8> {
+        if self.is_infinity() {
+            return vec![0x00];
+        }
+        let mut bytes = vec![0x04]; // Uncompressed point prefix
+        bytes.extend_from_slice(&self.x.to_bytes_be());
+        bytes.extend_from_slice(&self.y.to_bytes_be());
+        bytes
+    }
 }
 
 impl JacobianPoint {

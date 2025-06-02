@@ -16,6 +16,7 @@ const K: [u32; 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ];
 
+#[derive(Clone)]
 pub struct Sha256 {
     hash: [u8; 32],
 }
@@ -25,12 +26,12 @@ impl Sha256 {
         Self { hash: sha256(input) }
     }
 
-    pub fn digest(&self) -> String {
-        self.to_string()
-    }
-
     pub fn to_bigint(&self) -> BigInt {
         BigInt::from_bytes_be(&self.hash)
+    }
+
+    pub fn bytes(&self) -> &[u8; 32] {
+        &self.hash
     }
 }
 
