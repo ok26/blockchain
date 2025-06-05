@@ -16,7 +16,7 @@ const K: [u32; 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ];
 
-#[derive(Clone)]
+#[derive(Eq, Hash, Clone)]
 pub struct Sha256 {
     hash: [u8; 32],
 }
@@ -32,6 +32,18 @@ impl Sha256 {
 
     pub fn bytes(&self) -> &[u8; 32] {
         &self.hash
+    }
+
+    pub fn is_valid(&self, difficulty: u64) -> bool {
+        let target = 0xFFFFFFFFFFFFFFFF >> difficulty;
+        let hash_value = u64::from_be_bytes(self.hash[0..8].try_into().unwrap());
+        hash_value < target
+    }
+}
+
+impl PartialEq for Sha256 {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
     }
 }
 

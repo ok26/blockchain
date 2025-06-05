@@ -1,4 +1,5 @@
 use crate::math::big_int::BigInt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const BASE64_CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -138,4 +139,11 @@ pub fn der_decode<const T: usize>(der: &[u8]) -> Vec<BigInt<T>> {
     }
 
     fields
+}
+
+pub fn timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards")
+        .as_secs()
 }

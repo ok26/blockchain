@@ -1,5 +1,3 @@
-use core::hash;
-
 use crate::sha256::Sha256;
 use super::transaction::Transaction;
 
@@ -11,17 +9,20 @@ pub struct MerkleNode {
 }
 
 pub struct MerkleTree {
-    root: MerkleNode
+    root: MerkleNode,
+    transactions: Vec<Transaction>
 }
 
 impl MerkleTree {
-    pub fn new(hashes: Vec<Sha256>) -> MerkleTree {
+    pub fn new(transactions: Vec<Transaction>) -> MerkleTree {
+        let hashes: Vec<Sha256> = transactions.iter().map(|tx| tx.hash()).collect();
         MerkleTree {
             root: Self::parse_hashes(hashes).unwrap_or_else(|| MerkleNode {
                 hash: Sha256::hash(&[]),
                 left: None,
                 right: None
-            })
+            }),
+            transactions
         }
     }
 
@@ -41,7 +42,6 @@ impl MerkleTree {
         let mut hashes = hashes;
 
         if hashes.len() % 2 == 1 {
-            // If the number of hashes is odd, duplicate the last hash
             let last_hash = hashes.last().unwrap();
             hashes.push(last_hash.clone());
         }
@@ -61,8 +61,11 @@ impl MerkleTree {
         })
     }
 
-    pub fn from_transactions(transactions: Vec<Transaction>) -> MerkleTree {
-        let hashes: Vec<Sha256> = transactions.iter().map(|tx| tx.hash()).collect();
-        MerkleTree::new(hashes)
+    pub fn root_hash(&self) -> &Sha256 {
+        &self.root.hash
+    }
+
+    pub fn transactions(&self) -> &Vec<Transaction> {
+        &self.transactions
     }
 }

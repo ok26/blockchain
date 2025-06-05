@@ -1,23 +1,52 @@
+use blockchain::{block::Block, transaction::Transaction, Blockchain, MINING_REWARD};
+use user::User;
+
 mod rsa;
 mod math;
 mod sha256;
 mod ecdsa;
 mod util;
 mod blockchain;
+mod node;
+mod user;
 
 fn main() {
-    let public_key_ecdsa = ecdsa::ECDSAPublicKey::load("example_keys/public_key_ecdsa.txt");
-    let private_key_ecdsa = ecdsa::ECDSAPrivateKey::load("example_keys/private_key_ecdsa.txt");
+    let mut user = User::new("Sender", ecdsa::generate_keypair());
+    let coinbase = Transaction::get_coinbase(user.public_key.clone(), MINING_REWARD);
+    let mut blockchain = Blockchain::new(coinbase.clone());
+    user.update_funds(&coinbase);
 
-    println!("ECDSA Public Key: {}", public_key_ecdsa);
-    println!("ECDSA Private Key: {}", private_key_ecdsa);
+    let mut user2 = User::new("Receiver", ecdsa::generate_keypair());
+    println!("User1 funds: {}", user.get_funds());
+    println!("User2 funds: {}", user2.get_funds());
 
-    let message = b"Hello, world!";
-    println!("Message: {}", String::from_utf8_lossy(message));
+    let test_transaction = user.try_transaction(&user2.public_key, 25)
+        .unwrap_or_else(|e| panic!("Transaction failed: {:?}", e));
 
-    let signature_ecc = ecdsa::sign(message, &private_key_ecdsa);
-    println!("ECC Signature: {}", signature_ecc);
+    // This will the node handle in the future
+    let mut miner = User::new("Miner", ecdsa::generate_keypair());
+    let reward = Transaction::get_coinbase(miner.public_key.clone(), MINING_REWARD);
+    let mut block = Block::new(
+        blockchain.blocks.last().unwrap().hash.clone(), 
+        vec![test_transaction.clone(), reward.clone()]
+    );
+    block.mine();
+    let _ = blockchain.verify_block(&block)
+        .unwrap_or_else(|e| panic!("Failed to add block: {:?}", e));
 
-    let is_valid_ecc = ecdsa::verify(signature_ecc, message, &public_key_ecdsa);
-    println!("ECC Signature Valid: {}", is_valid_ecc);
+    println!("Transaction passed");
+
+    blockchain.add_block(block);
+    user.update_funds(&test_transaction);
+    user2.update_funds(&test_transaction);
+    miner.update_funds(&reward);
+
+    println!("User1 funds: {}", user.get_funds());
+    println!("User2 funds: {}", user2.get_funds());
+    println!("Miner funds: {}", miner.get_funds());
+
+    let invalid_transaction = user.try_transaction(&user2.public_key, 30)
+        .unwrap_or_else(|e| panic!("Transaction failed: {:?}", e));
+
+    println!("Something went wrong");
 }

@@ -5,12 +5,12 @@ use point::AffinePoint;
 use secp256k1::BARRET_MU_N;
 use crate::{math::{big_int::{BigInt, BigIntMod}, algorithms}, sha256::Sha256, util};
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ECDSAPrivateKey {
     pub key: BigInt<4>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ECDSAPublicKey {
     pub key: AffinePoint,
 }
