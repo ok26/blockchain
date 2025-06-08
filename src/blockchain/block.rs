@@ -1,7 +1,7 @@
 use crate::{sha256::Sha256, util};
 use super::{merkle::MerkleTree, transaction::Transaction};
 
-const DEFAULT_DIFFICULTY: u64 = 5;
+const DEFAULT_DIFFICULTY: u64 = 10;
 
 pub struct Block {
     pub timestamp: u64,
@@ -56,5 +56,22 @@ impl Block {
         bytes.extend_from_slice(&self.nonce.to_be_bytes());
         bytes.extend_from_slice(&self.difficulty.to_be_bytes());
         Sha256::hash(&bytes)
+    }
+}
+
+impl std::fmt::Debug for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let transactions: Vec<String> = self.merkle_tree.transactions()
+            .iter()
+            .map(|tx| format!("{:?}", tx))
+            .collect();
+        write!(f, "Block:\n timestamp: {},\n hash: {},\n previous_block_hash: {},\n nonce: {},\n merkle_root: {},\n transactions: [{}]",
+            self.timestamp,
+            self.hash,
+            self.previous_block_hash,
+            self.nonce,
+            self.merkle_tree.root_hash(),
+            transactions.join(", ")
+        )
     }
 }

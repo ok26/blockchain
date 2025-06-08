@@ -40,7 +40,7 @@ impl User {
                     script_pubkey: reciever.clone(),
                 });
                 let change = total_input - value;
-                if change > 0 {
+                if change != 0 {
                     transaction.add_output(TxOutput {
                         value: change,
                         script_pubkey: self.public_key.clone(),

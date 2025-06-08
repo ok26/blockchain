@@ -1,13 +1,13 @@
 use crate::{ecdsa::{point::AffinePoint, ECDSAPublicKey}, sha256::Sha256};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TxInput {
     pub txid: Sha256,
     pub vout: u32,
     pub script_sig: (AffinePoint, ECDSAPublicKey),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TxOutput {
     pub value: u64,
     pub script_pubkey: ECDSAPublicKey,
@@ -87,5 +87,24 @@ impl Transaction {
             serialized.extend_from_slice(&output.script_pubkey.get_der_encoding());
         }
         Sha256::hash(&serialized)
+    }
+}
+
+impl std::fmt::Debug for Transaction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::from("Inputs: ");
+        for input in &self.inputs {
+            res.push_str(&format!(
+                "txid: {}, vout: {}, script_sig: (AffinePoint: {}, PubKey: {})",
+                input.txid, input.vout, input.script_sig.0, input.script_sig.1
+            ));
+        }
+        for output in &self.outputs {
+            res.push_str(&format!(
+                "Outputs: value: {}, script_pubkey: {}",
+                output.value, output.script_pubkey
+            ));
+        }
+        write!(f, "Transaction: {}", res)
     }
 }

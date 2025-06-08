@@ -131,3 +131,13 @@ impl Blockchain {
         return Ok(());
     }
 }
+
+impl std::fmt::Debug for Blockchain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut res = String::from("Blockchain: \n");
+        for block in &self.blocks {
+            res.push_str(format!("{:?}\n", block).as_str());
+        }
+        write!(f, "{}", res)
+    }
+}
