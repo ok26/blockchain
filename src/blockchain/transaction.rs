@@ -1,5 +1,8 @@
 use crate::{ecdsa::{point::AffinePoint, ECDSAPublicKey}, sha256::Sha256};
 
+// txid is the hash of the transaction that created this input
+// vout is the index of the output in that transaction
+// script_sig is the signature and public key used to unlock this input
 #[derive(Clone, Debug)]
 pub struct TxInput {
     pub txid: Sha256,
@@ -7,7 +10,9 @@ pub struct TxInput {
     pub script_sig: (AffinePoint, ECDSAPublicKey),
 }
 
-#[derive(Clone, Debug)]
+// value is the amount of coins being sent
+// script_pubkey is the public key that can unlock this output
+#[derive(Clone, Debug, PartialEq)]
 pub struct TxOutput {
     pub value: u64,
     pub script_pubkey: ECDSAPublicKey,

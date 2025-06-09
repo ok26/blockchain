@@ -1,14 +1,14 @@
 use crate::sha256::Sha256;
 use super::transaction::Transaction;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MerkleNode {
     hash: Sha256,
     left: Option<Box<MerkleNode>>,
     right: Option<Box<MerkleNode>>
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct MerkleTree {
     root: MerkleNode,
     transactions: Vec<Transaction>
@@ -22,7 +22,7 @@ impl MerkleTree {
         if hashes.len() == 1 {
             hashes.push(hashes[0].clone());
         }
-        
+
         MerkleTree {
             root: Self::parse_hashes(hashes).unwrap_or_else(|| MerkleNode {
                 hash: Sha256::hash(&[]),

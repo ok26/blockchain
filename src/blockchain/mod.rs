@@ -27,6 +27,7 @@ pub enum BlockError {
     InvalidTransactions(Vec<TransactionError>)
 }
 
+#[derive(Clone)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
     utxo: HashMap<Sha256, Vec<TxOutput>>,
@@ -42,6 +43,20 @@ impl Blockchain {
         };
         blockchain.add_block(genesis_block);
         blockchain
+    }
+
+    pub fn create_block(&self, coinbase: Transaction, transactions: Vec<Transaction>) -> Block {
+        let previous_block_hash = if self.blocks.is_empty() {
+            Sha256::hash(&[])
+        } else {
+            self.blocks.last().unwrap().hash()
+        };
+        Block::new(previous_block_hash, {
+            let mut txs = Vec::with_capacity(1 + transactions.len());
+            txs.push(coinbase);
+            txs.extend(transactions);
+            txs
+        })
     }
 
     // Rewrite this completely
@@ -129,6 +144,27 @@ impl Blockchain {
         }
         
         return Ok(());
+    }
+
+    pub fn verify_chain(&self) -> Result<(), BlockError> {
+        if self.blocks.is_empty() {
+            return Err(BlockError::InvalidPreviousBlockHash);
+        }
+
+        for i in 1..self.blocks.len() {
+            self.verify_block(&self.blocks[i])?;
+        }
+
+        Ok(())
+    }
+
+    pub fn has_transaction(&self, tx: &Transaction) -> bool {
+        if let Some(utxo) = self.utxo.get(&tx.hash()) {
+            return utxo == &tx.outputs;
+        }
+        else {
+            return false;
+        }
     }
 }
 

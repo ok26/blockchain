@@ -3,6 +3,7 @@ use super::{merkle::MerkleTree, transaction::Transaction};
 
 const DEFAULT_DIFFICULTY: u64 = 10;
 
+#[derive(Clone)]
 pub struct Block {
     pub timestamp: u64,
     pub hash: Sha256,

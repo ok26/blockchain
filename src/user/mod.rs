@@ -5,6 +5,9 @@ pub enum UserError {
     InsufficientFunds,
 }
 
+// txid is the hash of the transaction where this fund is from
+// value is the amount of coins in this fund
+// vout is the index of the output in that transaction
 pub struct Fund {
     pub txid: Sha256,
     pub value: u64,
@@ -71,20 +74,28 @@ impl User {
         signed_transaction
     }
 
-    pub fn update_funds(&mut self, transaction: &Transaction) {
-        for input in &transaction.inputs {
-            self.funds.retain(|f| !(f.txid == input.txid && f.vout == input.vout));
+    pub fn update_funds(&mut self, tx: &Transaction) {
+        let txid = tx.hash();
+        let mut value = 0;
+        let mut vout = 0;
+
+        for (i, output) in tx.outputs.iter().enumerate() {
+            if output.script_pubkey == self.public_key {
+                value += output.value;
+                vout = i as u32;
+            }
+        }
+
+        if value != 0 {
+            self.funds.push(Fund {
+                txid,
+                value,
+                vout
+            });
         }
         
-        for (i, output) in transaction.outputs.iter().enumerate() {
-            if output.script_pubkey != self.public_key {
-                continue;
-            }
-            self.funds.push(Fund {
-                txid: transaction.hash(),
-                value: output.value,
-                vout: i as u32,
-            });
+        for input in &tx.inputs {
+            self.funds.retain(|f| !(f.txid == input.txid && f.vout == input.vout));
         }
     }
 
