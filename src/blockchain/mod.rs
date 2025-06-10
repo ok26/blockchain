@@ -18,7 +18,7 @@ pub enum TransactionError {
     MismatchedOutput
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BlockError {
     InvalidHash,
     InvalidMerkleRoot,
@@ -41,8 +41,17 @@ impl Blockchain {
         };
         let mut block = blockchain.create_block(coinbase, vec![]);
         block.mine();
+
+        // Will panic if incorrect coinbase, TODO: fix
         blockchain.add_block(block).unwrap();
         blockchain
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            blocks: vec![],
+            utxo: HashMap::new(),
+        }
     }
 
     pub fn create_block(&self, coinbase: Transaction, transactions: Vec<Transaction>) -> Block {
@@ -116,7 +125,7 @@ impl Blockchain {
     }
 
     fn verify_new_block(&self, block: &Block) -> Result<(), BlockError> {
-        if !(self.blocks.is_empty() || block.previous_block_hash == self.blocks.last().unwrap().hash) {
+        if !self.blocks.is_empty() && block.previous_block_hash != self.blocks.last().unwrap().hash {
             return Err(BlockError::InvalidPreviousBlockHash);
         }
 
@@ -148,6 +157,24 @@ impl Blockchain {
         }
         
         return Ok(());
+    }
+
+    // Builds a copy of the blockchain and verifies the integrity of the chain
+    pub fn verify_chain(&self) -> Result<(), BlockError> {
+        if self.blocks.is_empty() {
+            return Ok(());
+        }
+
+        let mut blockchain = Blockchain::empty();
+        for block in &self.blocks {
+            blockchain.add_block(block.clone())?;
+        }
+
+        if blockchain.utxo != self.utxo {
+            return Err(BlockError::InvalidTransactions(vec![]));
+        }
+
+        Ok(())
     }
 
     pub fn has_transaction(&self, tx: &Transaction) -> bool {

@@ -129,6 +129,11 @@ mod tests {
         let transaction = node.user.try_transaction(&recievers).unwrap();
 
         assert!(node.add_transaction(transaction).is_ok());
+
+        // Verify chain can only be called with no current transactions
+        // Mining the block will ensure this
+        node.mine();
+        assert_eq!(node.blockchain.verify_chain(), Ok(()));
     }
 
     #[test]
@@ -149,6 +154,9 @@ mod tests {
         let transaction = node.user.try_transaction(&recievers).unwrap();
         
         assert_eq!(node.add_transaction(transaction), Err(TransactionError::InsufficientFunds));
+
+        // Ensure the transaction was not added to the blockchain
+        assert_eq!(node.blockchain.verify_chain(), Ok(()));
     }
 
     #[test]
@@ -169,6 +177,12 @@ mod tests {
         
         assert!(node.add_transaction(transaction1).is_ok());
         assert_eq!(node.add_transaction(transaction2), Err(TransactionError::InsufficientFunds));
+
+        node.mine();
+
+        // Ensure the first transaction was mined and the second was not added
+        // Check the entire chain
+        assert_eq!(node.blockchain.verify_chain(), Ok(()));
     }
 
     #[test]
@@ -189,6 +203,9 @@ mod tests {
         
         // Now only two unspent transactions should remain: the second coinbase and the transaction to the recipient
         assert_eq!(node.blockchain.get_utxo().len(), 2);
+
+        // Check entire chain integrity
+        assert_eq!(node.blockchain.verify_chain(), Ok(()));
     }
 
     #[test]
@@ -207,5 +224,26 @@ mod tests {
         transaction.add_input(input);
 
         assert_eq!(node.add_transaction(transaction), Err(TransactionError::InvalidSignature));
+    }
+
+    #[test]
+    fn test_invalid_chain() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);
+        
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+
+        let recipient_keys = ecdsa::generate_keypair();
+        let recievers = vec![(recipient_keys.0, 50)];
+        let transaction = node.user.try_transaction(&recievers).unwrap();
+
+        assert!(node.add_transaction(transaction).is_ok());
+        node.mine();
+
+        // Manually change the blockchain to create an invalid state
+        node.blockchain.blocks[0].nonce += 1;
+
+        assert_eq!(node.blockchain.verify_chain(), Err(BlockError::InvalidHash));
     }
 }
