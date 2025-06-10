@@ -44,6 +44,7 @@ impl User {
                     transaction.add_output(TxOutput {
                         value: *value,
                         script_pubkey: reciever.clone(),
+                        spent: false,
                     });
                 }
                 
@@ -52,6 +53,7 @@ impl User {
                     transaction.add_output(TxOutput {
                         value: change,
                         script_pubkey: self.public_key.clone(),
+                        spent: false,
                     });
                 }
 
@@ -179,7 +181,7 @@ mod tests {
     }
 
     #[test]
-    fn test_double_spending() {
+    fn test_user_double_spending() {
         let keys = ecdsa::generate_keypair();
         let mut user = User::new("DoubleSpender", keys);
         

@@ -16,10 +16,12 @@ pub struct TxInput {
 pub struct TxOutput {
     pub value: u64,
     pub script_pubkey: ECDSAPublicKey,
+    pub spent: bool
 }
 
 #[derive(Clone)]
 pub struct Transaction {
+    pub coinbase_padding: Option<[u64; 4]>, // Used to distinguish coinbase transactions in different blocks
     pub inputs: Vec<TxInput>,
     pub outputs: Vec<TxOutput>,
 }
@@ -27,6 +29,7 @@ pub struct Transaction {
 impl Transaction {
     pub fn new() -> Transaction {
         Transaction {
+            coinbase_padding: None,
             inputs: Vec::new(),
             outputs: Vec::new(),
         }
@@ -37,7 +40,10 @@ impl Transaction {
         tx.outputs.push(TxOutput {
             value,
             script_pubkey: miner,
+            spent: false,
         });
+
+        tx.coinbase_padding = Some(random::get_nrandom_u64(4).try_into().unwrap());
         tx
     }
 
@@ -89,9 +95,8 @@ impl Transaction {
 
         // If this is a coinbase, we add random bytes to distinguish it 
         // from the same transaction in different blocks
-        if self.is_coinbase() {
-            let random_bytes = random::get_nrandom_u64(4);
-            for b in &random_bytes {
+        if self.is_coinbase() && self.coinbase_padding.is_some() {
+            for b in &self.coinbase_padding.unwrap() {
                 serialized.extend_from_slice(&b.to_be_bytes());
             }
         }

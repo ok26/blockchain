@@ -1,5 +1,6 @@
 use crate::{
-    blockchain::{block::Block, transaction::Transaction, BlockError, Blockchain, TransactionError, MINING_REWARD}, ecdsa::{ECDSAPrivateKey, ECDSAPublicKey}, sha256::Sha256, user::User
+    blockchain::{block::Block, transaction::Transaction, BlockError, Blockchain, TransactionError, MINING_REWARD}, 
+    ecdsa::{ECDSAPrivateKey, ECDSAPublicKey}, sha256::Sha256, user::User
 };
 
 pub struct Node {
@@ -13,29 +14,68 @@ impl Node {
         Node {
             blockchain: history,
             current_transactions: Vec::new(),
-            user: User::new(name, keys)
+            user: User::new(name, keys),
         }
     }
 
     pub fn add_transaction(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
         self.blockchain.verify_new_transaction(&transaction)?;
+        for input in &transaction.inputs {
+            self.blockchain.set_output_spent(&input.txid, input.vout, true);
+        }
         self.current_transactions.push(transaction);
         Ok(())
+    }
+
+    pub fn remove_transaction(&mut self, txid: &Sha256) -> Result<(), ()> {
+        if let Some(pos) = self.current_transactions.iter().position(|tx| tx.hash() == *txid) {
+            let transaction = self.current_transactions.remove(pos);
+            for input in &transaction.inputs {
+                self.blockchain.set_output_spent(&input.txid, input.vout, false);
+            }
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn clear_current_transactions(&mut self) {
+        for tx in self.current_transactions.clone() {
+            let _ = self.remove_transaction(&tx.hash());
+        }
     }
 
     pub fn mine(&mut self) -> Block {
         let coinbase = Transaction::get_coinbase(self.user.public_key.clone(), MINING_REWARD);
         let mut block = self.blockchain.create_block(coinbase.clone(), self.current_transactions.clone());
         block.mine();
-        self.blockchain.add_block(block.clone());
-        self.current_transactions.clear();
+        self.clear_current_transactions();
+        self.blockchain.add_block(block.clone()).unwrap();
         self.user.update_funds(&coinbase);
         block
     }
 
     pub fn accept_block(&mut self, block: Block) -> Result<(), BlockError> {
-        self.blockchain.verify_block(&block)?;
-        self.blockchain.add_block(block);
+        let transactions = block.merkle_tree.transactions();
+
+        // Remove confirmed transactions from current transactions
+        for tx in block.merkle_tree.transactions() {
+            if self.current_transactions.iter().any(|t| t.hash() == tx.hash()) {
+                self.remove_transaction(&tx.hash()).unwrap();
+            }
+        }
+
+        let res = self.blockchain.add_block(block.clone());
+
+        if res.is_err() {
+            // Add all transactions back to current transactions
+            for tx in transactions {
+                self.current_transactions.push(tx.clone());
+            }
+
+            return Err(res.err().unwrap());
+        }
+
         Ok(())
     }
 
@@ -129,5 +169,43 @@ mod tests {
         
         assert!(node.add_transaction(transaction1).is_ok());
         assert_eq!(node.add_transaction(transaction2), Err(TransactionError::InsufficientFunds));
+    }
+
+    #[test]
+    fn test_blockchain_remove_utxo() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);
+        assert_eq!(node.blockchain.get_utxo().len(), 1);
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+        
+        let recipient_keys = ecdsa::generate_keypair();
+        let recievers = vec![(recipient_keys.0, MINING_REWARD)];
+        let transaction = node.user.try_transaction(&recievers).unwrap();
+        
+        assert!(node.add_transaction(transaction).is_ok());
+        
+        node.mine();
+        
+        // Now only two unspent transactions should remain: the second coinbase and the transaction to the recipient
+        assert_eq!(node.blockchain.get_utxo().len(), 2);
+    }
+
+    #[test]
+    fn test_invalid_signature() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);
+        
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+
+        let recievers = vec![(ecdsa::generate_keypair().0, 50)];
+        let mut transaction = node.user.try_transaction(&recievers).unwrap();
+
+        // Add an invalid input to the transaction, making the signature out of sync
+        let input = transaction.inputs[0].clone();
+        transaction.add_input(input);
+
+        assert_eq!(node.add_transaction(transaction), Err(TransactionError::InvalidSignature));
     }
 }

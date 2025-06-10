@@ -30,18 +30,18 @@ pub enum BlockError {
 #[derive(Clone)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
-    pub utxo: HashMap<Sha256, Vec<TxOutput>>,
+    utxo: HashMap<Sha256, Vec<TxOutput>>,
 }
 
 impl Blockchain {
     pub fn new(coinbase: Transaction) -> Self {
-        let mut genesis_block = Block::new_genesis(coinbase);
-        genesis_block.mine();
         let mut blockchain = Self {
             blocks: vec![],
             utxo: HashMap::new(),
         };
-        blockchain.add_block(genesis_block);
+        let mut block = blockchain.create_block(coinbase, vec![]);
+        block.mine();
+        blockchain.add_block(block).unwrap();
         blockchain
     }
 
@@ -59,16 +59,20 @@ impl Blockchain {
         })
     }
 
-    // Rewrite this completely
-    pub fn add_block(&mut self, block: Block) {
+    pub fn add_block(&mut self, block: Block) -> Result<(), BlockError> {
+        self.verify_new_block(&block)?;
         for transaction in block.merkle_tree.transactions() {
             self.utxo.insert(transaction.hash(), transaction.outputs.clone());
             for input in &transaction.inputs {
                 let v = self.utxo.get_mut(&input.txid).unwrap();
-                v[input.vout as usize].value = 0;
+                v[input.vout as usize].spent = true;
+                if v.iter().all(|output| output.spent) {
+                    self.utxo.remove(&input.txid);
+                }
             }
         }
         self.blocks.push(block);
+        Ok(())
     }
 
     pub fn verify_new_transaction(&self, tx: &transaction::Transaction) -> Result<(), TransactionError> {
@@ -79,7 +83,7 @@ impl Blockchain {
                 return Err(TransactionError::InsufficientFunds);
             }
             let ref_output = ref_output.unwrap().get(input.vout as usize);
-            if ref_output.is_none() {
+            if ref_output.is_none() || ref_output.unwrap().spent {
                 return Err(TransactionError::InsufficientFunds);
             }
             let ref_output = ref_output.unwrap();
@@ -111,8 +115,8 @@ impl Blockchain {
         return Ok(());
     }
 
-    pub fn verify_new_block(&self, block: &Block) -> Result<(), BlockError> {
-        if block.previous_block_hash != self.blocks.last().unwrap().hash {
+    fn verify_new_block(&self, block: &Block) -> Result<(), BlockError> {
+        if !(self.blocks.is_empty() || block.previous_block_hash == self.blocks.last().unwrap().hash) {
             return Err(BlockError::InvalidPreviousBlockHash);
         }
 
@@ -146,24 +150,6 @@ impl Blockchain {
         return Ok(());
     }
 
-    pub fn verify_block(&self, block: &Block) -> Result<(), BlockError> {
-        self.verify_new_block(block)?;
-        self.verify_chain()?;
-        Ok(())
-    }
-
-    pub fn verify_chain(&self) -> Result<(), BlockError> {
-        if self.blocks.is_empty() {
-            return Ok(());
-        }
-
-        for i in 1..self.blocks.len() {
-            self.verify_block(&self.blocks[i])?;
-        }
-
-        Ok(())
-    }
-
     pub fn has_transaction(&self, tx: &Transaction) -> bool {
         if let Some(utxo) = self.utxo.get(&tx.hash()) {
             return utxo == &tx.outputs;
@@ -183,6 +169,18 @@ impl Blockchain {
             }
         }
         funds
+    }
+
+    pub fn get_utxo(&self) -> HashMap<Sha256, Vec<TxOutput>> {
+        self.utxo.clone()
+    }
+
+    pub fn set_output_spent(&mut self, txid: &Sha256, vout: u32, spent: bool) {
+        if let Some(outputs) = self.utxo.get_mut(txid) {
+            if let Some(output) = outputs.get_mut(vout as usize) {
+                output.spent = spent;
+            }
+        }
     }
 }
 
