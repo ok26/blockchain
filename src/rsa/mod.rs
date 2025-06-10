@@ -1,7 +1,7 @@
 use prime_gen::generate_primes;
 use crate::{math::{algorithms, big_int::{BigInt, BigIntMod}}, sha256::Sha256, util};
 
-mod prime_gen;
+pub mod prime_gen;
 
 const KEY_SIZE: usize = 50;
 const MILLER_ROUND: usize = 16;

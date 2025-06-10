@@ -1,4 +1,6 @@
-use crate::{blockchain::{block::Block, transaction::Transaction, BlockError, Blockchain, TransactionError, MINING_REWARD}, ecdsa::{ECDSAPrivateKey, ECDSAPublicKey}, user::User};
+use crate::{
+    blockchain::{block::Block, transaction::Transaction, BlockError, Blockchain, TransactionError, MINING_REWARD}, ecdsa::{ECDSAPrivateKey, ECDSAPublicKey}, sha256::Sha256, user::User
+};
 
 pub struct Node {
     blockchain: Blockchain,
@@ -16,7 +18,7 @@ impl Node {
     }
 
     pub fn add_transaction(&mut self, transaction: Transaction) -> Result<(), TransactionError> {
-        self.blockchain.verify_transaction(&transaction)?;
+        self.blockchain.verify_new_transaction(&transaction)?;
         self.current_transactions.push(transaction);
         Ok(())
     }
@@ -39,5 +41,93 @@ impl Node {
 
     pub fn is_transaction_confirmed(&self, tx: &Transaction) -> bool {
         self.blockchain.has_transaction(tx)
+    }
+
+    pub fn get_funds_from_chain(&self, user: &ECDSAPublicKey) -> Vec<(Sha256, u32, u64)> {
+        self.blockchain.get_user_funds(user)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{ecdsa, user::Fund};
+
+    use super::*;
+
+    #[test]
+    fn test_node_creation() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let node = Node::new("TestNode", blockchain, keys);
+        assert_eq!(node.user.name, "TestNode");
+    }
+
+    #[test]
+    fn test_node_mining() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("Miner", blockchain, keys);
+        
+        let block = node.mine();
+        assert_eq!(block.merkle_tree.transactions().len(), 1);
+        assert_eq!(block.merkle_tree.transactions()[0].outputs[0].value, MINING_REWARD);
+        assert!(node.user.get_funds() == MINING_REWARD); // Previous is ignored if not queried
+
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+        assert!(node.user.get_funds() == 2 * MINING_REWARD);
+    }
+
+    #[test]
+    fn test_node_add_transaction() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+        
+        let recipient_keys = ecdsa::generate_keypair();
+        let recievers = vec![(recipient_keys.0, MINING_REWARD)];
+        let transaction = node.user.try_transaction(&recievers).unwrap();
+
+        assert!(node.add_transaction(transaction).is_ok());
+    }
+
+    #[test]
+    fn test_add_invalid_transaction() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);
+
+        // Insert a dummy fund to allow transaction creation
+        node.user.funds.push(Fund {
+            txid: Sha256::hash(&[]),
+            value: 3 * MINING_REWARD,
+            vout: 0
+        });
+        
+        let recipient_keys = ecdsa::generate_keypair();
+        let recievers = vec![(recipient_keys.0, 3 * MINING_REWARD)]; // More than available funds
+        let transaction = node.user.try_transaction(&recievers).unwrap();
+        
+        assert_eq!(node.add_transaction(transaction), Err(TransactionError::InsufficientFunds));
+    }
+
+    #[test]
+    fn test_double_spending() {
+        let keys = ecdsa::generate_keypair();
+        let blockchain = Blockchain::new(Transaction::get_coinbase(keys.0.clone(), MINING_REWARD));
+        let mut node = Node::new("TestNode", blockchain, keys);        
+        node.user.update_funds_from_chain(&node.get_funds_from_chain(&node.user.public_key));
+        
+        let recipient_keys1 = ecdsa::generate_keypair();
+        let recipient_keys2 = ecdsa::generate_keypair();
+        
+        let recievers1 = vec![(recipient_keys1.0, MINING_REWARD)];
+        let recievers2 = vec![(recipient_keys2.0, MINING_REWARD)];
+        
+        let transaction1 = node.user.try_transaction(&recievers1).unwrap();
+        let transaction2 = node.user.try_transaction(&recievers2).unwrap();
+        
+        assert!(node.add_transaction(transaction1).is_ok());
+        assert_eq!(node.add_transaction(transaction2), Err(TransactionError::InsufficientFunds));
     }
 }

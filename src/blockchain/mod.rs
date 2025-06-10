@@ -10,7 +10,7 @@ pub mod transaction;
 
 pub const MINING_REWARD: u64 = 50;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TransactionError {
     InvalidSignature,
     InsufficientFunds,
@@ -30,7 +30,7 @@ pub enum BlockError {
 #[derive(Clone)]
 pub struct Blockchain {
     pub blocks: Vec<Block>,
-    utxo: HashMap<Sha256, Vec<TxOutput>>,
+    pub utxo: HashMap<Sha256, Vec<TxOutput>>,
 }
 
 impl Blockchain {
@@ -71,7 +71,7 @@ impl Blockchain {
         self.blocks.push(block);
     }
 
-    pub fn verify_transaction(&self, tx: &transaction::Transaction) -> Result<(), TransactionError> {
+    pub fn verify_new_transaction(&self, tx: &transaction::Transaction) -> Result<(), TransactionError> {
         let mut total_input = 0;
         for (i, input) in tx.inputs.iter().enumerate() {
             let ref_output = self.utxo.get(&input.txid);
@@ -111,7 +111,7 @@ impl Blockchain {
         return Ok(());
     }
 
-    pub fn verify_block(&self, block: &Block) -> Result<(), BlockError> {
+    pub fn verify_new_block(&self, block: &Block) -> Result<(), BlockError> {
         if block.previous_block_hash != self.blocks.last().unwrap().hash {
             return Err(BlockError::InvalidPreviousBlockHash);
         }
@@ -130,7 +130,7 @@ impl Blockchain {
             if tx.is_coinbase() {
                 coinbase_cnt += 1;
             }
-            let _ = self.verify_transaction(tx).map_err(|e| {
+            let _ = self.verify_new_transaction(tx).map_err(|e| {
                 transaction_errors.push(e);
             });
         }
@@ -146,9 +146,15 @@ impl Blockchain {
         return Ok(());
     }
 
+    pub fn verify_block(&self, block: &Block) -> Result<(), BlockError> {
+        self.verify_new_block(block)?;
+        self.verify_chain()?;
+        Ok(())
+    }
+
     pub fn verify_chain(&self) -> Result<(), BlockError> {
         if self.blocks.is_empty() {
-            return Err(BlockError::InvalidPreviousBlockHash);
+            return Ok(());
         }
 
         for i in 1..self.blocks.len() {
@@ -165,6 +171,18 @@ impl Blockchain {
         else {
             return false;
         }
+    }
+
+    pub fn get_user_funds(&self, pubkey: &ecdsa::ECDSAPublicKey) -> Vec<(Sha256, u32, u64)> {
+        let mut funds = Vec::new();
+        for (txid, outputs) in &self.utxo {
+            for (vout, output) in outputs.iter().enumerate() {
+                if output.script_pubkey == *pubkey {
+                    funds.push((txid.clone(), vout as u32, output.value));
+                }
+            }
+        }
+        funds
     }
 }
 

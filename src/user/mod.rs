@@ -31,18 +31,23 @@ impl User {
         }
     }
 
-    pub fn try_transaction(&self, reciever: &ECDSAPublicKey, value: u64) -> Result<Transaction, UserError> {
+    pub fn try_transaction(&self, recievers: &Vec<(ECDSAPublicKey, u64)>) -> Result<Transaction, UserError> {
         let mut total_input = 0;
+        let total_output: u64 = recievers.iter().map(|(_, value)| *value).sum();
         let mut transaction = Transaction::new();
         for fund in &self.funds {
             total_input += fund.value;
             transaction.add_input(self.get_input(fund));
-            if total_input >= value {
-                transaction.add_output(TxOutput {
-                    value: value,
-                    script_pubkey: reciever.clone(),
-                });
-                let change = total_input - value;
+            if total_input >= total_output {
+
+                for (reciever, value) in recievers {
+                    transaction.add_output(TxOutput {
+                        value: *value,
+                        script_pubkey: reciever.clone(),
+                    });
+                }
+                
+                let change = total_input - total_output;
                 if change != 0 {
                     transaction.add_output(TxOutput {
                         value: change,
@@ -99,11 +104,96 @@ impl User {
         }
     }
 
+    pub fn update_funds_from_chain(&mut self, funds: &Vec<(Sha256, u32, u64)>) {
+        self.funds.clear();
+        for (txid, vout, value) in funds {
+            self.funds.push(Fund {
+                txid: txid.clone(),
+                value: *value,
+                vout: *vout
+            });
+        }
+    }
+
     pub fn get_funds(&self) -> u64 {
         let mut total = 0;
         for fund in &self.funds {
             total += fund.value;
         }
         total
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_user_creation() {
+        let keys = ecdsa::generate_keypair();
+        let user = User::new("User", keys);
+        assert_eq!(user.name, "User");
+        assert_eq!(user.public_key.get_der_encoding().len(), 70);
+        assert_eq!(user.private_key.get_der_encoding().len(), 36);
+    }
+
+    #[test]
+    fn test_user_funds() {
+        let keys = ecdsa::generate_keypair();
+        let mut user = User::new("Name", keys);
+        
+        let tx = Transaction::get_coinbase(user.public_key.clone(), 100);
+        user.update_funds(&tx);
+        assert_eq!(user.get_funds(), 100);
+        
+        let recievers = vec![(ecdsa::generate_keypair().0, 150)];
+        assert!(user.try_transaction(&recievers).is_err());
+        
+        let tx2 = Transaction::get_coinbase(user.public_key.clone(), 50);
+        user.update_funds(&tx2);
+        
+        assert_eq!(user.get_funds(), 150);
+        assert!(user.try_transaction(&recievers).is_ok());
+    }
+
+    #[test]
+    fn test_user_signing() {
+        let keys = ecdsa::generate_keypair();
+        let mut user = User::new("TestUser", keys);
+        
+        let coinbase = Transaction::get_coinbase(user.public_key.clone(), 100);
+        user.update_funds(&coinbase);
+
+        let recievers = vec![(ecdsa::generate_keypair().0, 50)];
+        let transaction = user.try_transaction(&recievers).unwrap();
+        
+        assert_eq!(transaction.outputs.len(), 2); // One for the receiver and one for change
+        assert_eq!(transaction.outputs[0].value, 50);
+        assert_eq!(transaction.outputs[1].value, user.get_funds() - 50);
+        
+        for (i, input) in transaction.inputs.iter().enumerate() {
+            let hash = transaction.get_input_hash(i, &user.public_key);
+            assert!(ecdsa::verify(input.script_sig.0, hash.bytes(), &user.public_key));
+        }
+    }
+
+    #[test]
+    fn test_double_spending() {
+        let keys = ecdsa::generate_keypair();
+        let mut user = User::new("DoubleSpender", keys);
+        
+        let coinbase = Transaction::get_coinbase(user.public_key.clone(), 100);
+        user.update_funds(&coinbase);
+
+        let recievers1 = vec![(ecdsa::generate_keypair().0, 50)];
+        let transaction1 = user.try_transaction(&recievers1).unwrap();
+        user.update_funds(&transaction1);
+
+        let recievers2 = vec![(ecdsa::generate_keypair().0, 60)];
+        assert!(user.try_transaction(&recievers2).is_err()); // Should fail due to insufficient funds
+
+        let recievers3 = vec![(ecdsa::generate_keypair().0, 50)];
+        assert!(user.try_transaction(&recievers3).is_ok()); // Should succeed with remaining funds
     }
 }

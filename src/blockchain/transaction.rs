@@ -1,4 +1,4 @@
-use crate::{ecdsa::{point::AffinePoint, ECDSAPublicKey}, sha256::Sha256};
+use crate::{ecdsa::{point::AffinePoint, ECDSAPublicKey}, math::random, sha256::Sha256};
 
 // txid is the hash of the transaction that created this input
 // vout is the index of the output in that transaction
@@ -86,6 +86,16 @@ impl Transaction {
             serialized.extend_from_slice(&input.script_sig.0.get_bytes());
             serialized.extend_from_slice(&input.script_sig.1.get_der_encoding());
         }
+
+        // If this is a coinbase, we add random bytes to distinguish it 
+        // from the same transaction in different blocks
+        if self.is_coinbase() {
+            let random_bytes = random::get_nrandom_u64(4);
+            for b in &random_bytes {
+                serialized.extend_from_slice(&b.to_be_bytes());
+            }
+        }
+
         serialized.push(self.outputs.len() as u8);
         for output in &self.outputs {
             serialized.extend_from_slice(&output.value.to_be_bytes());
