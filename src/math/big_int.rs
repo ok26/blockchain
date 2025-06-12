@@ -337,15 +337,25 @@ impl<const T: usize> Shr<u64> for BigInt<T> {
             return -((-self) >> rhs);
         }
         let mut res = Self::new();
-        let parts_shift = rhs as usize / 64;
-        let bits_shift = rhs as usize % 64;
-        for i in 0..(T - parts_shift as usize) {
-            res.set_part(i, self.get_part(i + parts_shift as usize));
+        let parts_shift = (rhs / 64) as usize;
+        let bits_shift = (rhs % 64) as u32;
+
+        if parts_shift >= T {
+            return res;
         }
+
+        // Shift parts
+        for i in 0..(T - parts_shift) {
+            res.bytes[i] = self.bytes[i + parts_shift];
+        }
+
+        // Shift bits within parts
         if bits_shift != 0 {
-            for i in (0..(T - parts_shift as usize)).rev() {
-                let next_part = self.get_part(i + 1);
-                res.set_part(i, (self.get_part(i) >> bits_shift) | (next_part << (64 - bits_shift)));
+            let mut carry = 0u64;
+            for i in (0..(T - parts_shift)).rev() {
+                let val = res.bytes[i];
+                res.bytes[i] = (val >> bits_shift) | carry;
+                carry = if bits_shift < 64 { val << (64 - bits_shift) } else { 0 };
             }
         }
         res
@@ -360,18 +370,25 @@ impl<const T: usize> Shl<u64> for BigInt<T> {
             return -((-self) << rhs);
         }
         let mut res = Self::new();
-        let parts_shift = rhs as usize / 64;
-        let bits_shift = rhs as usize % 64;
-        if parts_shift > T {
+        let parts_shift = (rhs / 64) as usize;
+        let bits_shift = (rhs % 64) as u32;
+
+        if parts_shift >= T {
             return res;
         }
-        for i in 0..(T - parts_shift as usize) {
-            res.set_part(i + parts_shift as usize, self.get_part(i));
+
+        // Shift parts
+        for i in (0..T - parts_shift).rev() {
+            res.bytes[i + parts_shift] = self.bytes[i];
         }
+
+        // Shift bits within parts
         if bits_shift != 0 {
-            for i in (0..(T - parts_shift as usize)).rev() {
-                let next_part = if i == 0 { 0 } else { self.get_part(i - 1) };
-                res.set_part(i, (self.get_part(i) << bits_shift) | (next_part >> (64 - bits_shift)));
+            let mut carry = 0u64;
+            for i in parts_shift..T {
+                let val = res.bytes[i];
+                res.bytes[i] = (val << bits_shift) | carry;
+                carry = if bits_shift < 64 { val >> (64 - bits_shift) } else { 0 };
             }
         }
         res
@@ -563,4 +580,168 @@ impl<const T: usize> std::fmt::Display for BigIntMod<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.integer)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bigint_addition() {
+        let a = BigInt::<10>::from_hex_string("aaabbbb12398017506123123cb12b3bbcbbdeb1beeb1bebbcB123");
+        let b = BigInt::<10>::from_hex_string("9836123bbcbefff123cb12b3b23123bb123c000eff12b1bebbcB2");
+        let c = a + b;
+        assert_eq!(c, BigInt::<10>::from_hex_string("142e1cdece057016629dd43d77d43d776ddf9eb2aedc4707a86dd5"));
+    }
+
+    #[test]
+    fn test_bigint_addition_negative() {
+        let a = BigInt::<5>::from_hex_string("80cdef1234567890fedcba98765432100123456789abcdef0123456789abcdef1234567890abcdef");
+        let b = -a;
+        let c = a + b;
+        assert_eq!(c, BigInt::from_num(0));
+    }
+
+    #[test]
+    fn test_bigint_subtraction() {
+        let a = BigInt::<10>::from_num(30);
+        let b = BigInt::<10>::from_num(20);
+        let c = a - b;
+        assert_eq!(c.get_part(0), 10);
+    }
+
+    #[test]
+    fn test_bigint_subtraction_negative() {
+        let a = BigInt::<5>::from_hex_string("aaabbbb12398017506123123cb12b3bbcbbdeb1beeb1bebbcB123");
+        let b = BigInt::<5>::from_hex_string("80cdef1234567890fedcba98765432100123456789abcdef0123456789abcdef1234567890abcdef");
+        let c = a - b;
+        assert_eq!(c, BigInt::from_hex_string("7f3210edcba9876f0123456789b678abb9eef4188da4933411196bc3b210edef9f8a94a35b10e334"));
+    }
+
+    #[test]
+    fn test_bigint_multiplication() {
+        let a = BigInt::<10>::from_hex_string("aaabbbb12398017506123123cb12b3bbcbbdeb1beeb1bebbcB123");
+        let b = BigInt::<10>::from_hex_string("9836123bbcbefff123cb12b3b23123bb123c000eff12b1bebbcB2");
+        let c = a * b;
+        assert_eq!(c, BigInt::from_hex_string("657a03d2ab1bed2ee586b2d22a0a7449253c2f5cdb3324ef029d0bbc9f093e51b68ae5f6050748b0e44ec5f7742b06fb4ec769de56"));
+    }
+
+    #[test]
+    fn test_bigint_from_num_and_get_part() {
+        let n = 0x123456789abcdef0123456789abcdef0u128;
+        let a = BigInt::<2>::from_num(n);
+        assert_eq!(a.get_part(0), 0x123456789abcdef0u64);
+        assert_eq!(a.get_part(1), 0x123456789abcdef0u64);
+    }
+
+    #[test]
+    fn test_bigint_from_parts_and_to_bytes_be() {
+        let parts = [0x1122334455667788, 0x99aabbccddeeff00];
+        let a = BigInt::<2>::from_parts(parts);
+        let bytes = a.to_bytes_be();
+        assert_eq!(
+            bytes,
+            [
+                0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88
+            ]
+        );
+    }
+
+    #[test]
+    fn test_bigint_from_bytes_be() {
+        let bytes = [
+            0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+            0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
+        ];
+        let a = BigInt::<2>::from_bytes_be(&bytes);
+        assert_eq!(a.get_part(1), 0x0102030405060708);
+        assert_eq!(a.get_part(0), 0x090a0b0c0d0e0f10);
+    }
+
+    #[test]
+    fn test_bigint_is_negative_and_neg() {
+        let a = BigInt::<2>::from_parts([0x187123, 0x8000000000000000]);
+        assert!(a.is_negative());
+        let b = -a;
+        assert!(!b.is_negative());
+    }
+
+    #[test]
+    fn test_bigint_is_odd() {
+        let a = BigInt::<2>::from_parts([3, 0]);
+        assert!(a.is_odd());
+        let b = BigInt::<2>::from_parts([2, 0]);
+        assert!(!b.is_odd());
+    }
+
+    #[test]
+    fn test_bigint_log2() {
+        let a = BigInt::<2>::from_parts([0, 0x8000000000000000]);
+        assert_eq!(a.log2(), 128);
+        let b = BigInt::<2>::from_parts([0x8000000000000000, 0]);
+        assert_eq!(b.log2(), 64);
+        let c = BigInt::<2>::from_parts([0, 0]);
+        assert_eq!(c.log2(), 0);
+    }
+
+    #[test]
+    fn test_bigint_mod_u64() {
+        let a = BigInt::<2>::from_parts([0x123456789abcdef0, 0x0fedcba987654321]);
+        let m = 123456789u64;
+        let r = a.mod_u64(m);
+        let expected = ((0x0fedcba987654321u128 << 64) + 0x123456789abcdef0u128) % m as u128;
+        assert_eq!(r, expected);
+    }
+
+    #[test]
+    fn test_bigint_shl_and_shr() {
+        let a = BigInt::<2>::from_parts([1, 0]);
+        let b = a << 65;
+        println!("{}, {}", a.get_hex(), b.get_hex());
+        assert_eq!(b.get_part(0), 0);
+        assert_eq!(b.get_part(1), 2);
+
+        let c = b >> 65;
+        assert_eq!(c, a);
+    }
+
+    #[test]
+    fn test_bigint_not() {
+        let a = BigInt::<2>::from_parts([0x0, 0xffffffffffffffff]);
+        let b = !a;
+        assert_eq!(b.get_part(0), 0xffffffffffffffff);
+        assert_eq!(b.get_part(1), 0x0);
+    }
+
+    #[test]
+    fn test_bigint_to_bits() {
+        let a = BigInt::<1>::from_parts([0b1011]);
+        let bits = a.to_bits();
+        assert_eq!(bits[0], true);
+        assert_eq!(bits[1], true);
+        assert_eq!(bits[2], false);
+        assert_eq!(bits[3], true);
+    }
+
+    #[test]
+    fn test_bigint_get_hex_and_base64() {
+        let a = BigInt::<2>::from_parts([0x123456789abcdef0, 0x0fedcba987654321]);
+        let hex = a.get_hex();
+        assert!(hex.contains("fedcba987654321123456789abcdef0"));
+        let base64 = a.get_base64();
+        assert!(!base64.is_empty());
+    }
+
+    #[test]
+    fn test_bigint_resize() {
+        let a = BigInt::<2>::from_parts([1, 2]);
+        let b: BigInt<4> = a.resize();
+        assert_eq!(b.get_part(0), 1);
+        assert_eq!(b.get_part(1), 2);
+        assert_eq!(b.get_part(2), 0);
+        assert_eq!(b.get_part(3), 0);
+    }
+
+    // BigIntMod Tests
 }

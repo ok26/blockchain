@@ -128,3 +128,49 @@ pub fn verify(signature: AffinePoint, message: &[u8], public_key: &ECDSAPublicKe
     let x1 = BigIntMod::<12>::new_reduce(p.x.resize(), secp256k1::N.resize(), BARRET_MU_N);
     x1.integer == r.resize()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sign_and_verify() {
+        let (pubkey, privkey) = generate_keypair();
+        let message = b"Byte array to sign";
+        let signature = sign(message, &privkey);
+        assert!(verify(signature, message, &pubkey));
+    }
+
+    #[test]
+    fn test_sign_and_verify_modified_message() {
+        let (pubkey, privkey) = generate_keypair();
+        let message = b"Byte array to sign";
+        let signature = sign(message, &privkey);
+        assert!(verify(signature, message, &pubkey));
+
+        let modified_message = b"Modified byte array to sign";
+        assert!(!verify(signature, modified_message, &pubkey));
+    }
+
+    #[test]
+    fn test_sign_and_verify_invalid_signature() {
+        let (pubkey, privkey) = generate_keypair();
+        let message = b"Byte array to sign";
+        let signature = sign(message, &privkey);
+        
+        // Modify the signature
+        let invalid_signature = AffinePoint::new(signature.x + BigInt::from_num(1), signature.y);
+        assert!(!verify(invalid_signature, message, &pubkey));
+    }
+
+    #[test]
+    fn test_sign_and_verify_invalid_user() {
+        let (_, privkey) = generate_keypair();
+        let message = b"Byte array to sign";
+        let signature = sign(message, &privkey);
+        
+        // Create a new keypair
+        let (other_pubkey, _) = generate_keypair();
+        assert!(!verify(signature, message, &other_pubkey));
+    }
+}

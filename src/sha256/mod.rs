@@ -123,3 +123,22 @@ fn sha256(input: &[u8]) -> [u8; 32] {
     }
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sha256_hash_ex1() {
+        let hash = Sha256::hash(b"abc");
+        let hex = format!("{}", hash);
+        assert_eq!(hex, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    }
+
+    #[test]
+    fn test_sha256_hash_ex2() {
+        let hash = Sha256::hash(b"Byte array to test");
+        let hex = format!("{}", hash);
+        assert_eq!(hex, "4ce9215919a36e7fe07886afb320057110b57e14275176b92140b2a90e4816ef");
+    }
+}

@@ -219,7 +219,7 @@ mod tests {
         let recievers = vec![(ecdsa::generate_keypair().0, 50)];
         let mut transaction = node.user.try_transaction(&recievers).unwrap();
 
-        // Add an invalid input to the transaction, making the signature out of sync
+        // Add an invalid input to the transaction, making the signature invalid
         let input = transaction.inputs[0].clone();
         transaction.add_input(input);
 
