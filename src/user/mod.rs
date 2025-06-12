@@ -1,4 +1,4 @@
-use crate::{blockchain::transaction::{Transaction, TxInput, TxOutput}, ecdsa::{self, point::AffinePoint, ECDSAPrivateKey, ECDSAPublicKey}, sha256::Sha256};
+use crate::{blockchain::{merkle::MerkleTree, transaction::{Transaction, TxInput, TxOutput}}, ecdsa::{self, point::AffinePoint, ECDSAPrivateKey, ECDSAPublicKey}, sha256::Sha256};
 
 #[derive(Debug)]
 pub enum UserError {
@@ -123,6 +123,10 @@ impl User {
             total += fund.value;
         }
         total
+    }
+
+    pub fn verify_transaction_prescence(&self, tx: Transaction, branch: Vec<(Sha256, usize)>, root_hash: Sha256) -> bool {
+        MerkleTree::verify_transaction_branch(tx, branch, root_hash)
     }
 }
 

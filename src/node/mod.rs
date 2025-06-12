@@ -86,6 +86,14 @@ impl Node {
     pub fn get_funds_from_chain(&self, user: &ECDSAPublicKey) -> Vec<(Sha256, u32, u64)> {
         self.blockchain.get_user_funds(user)
     }
+
+    // Might need to find the block in another way in the future
+    pub fn get_verifiyng_transaction_branch(&self, tx: Transaction, block_idx: usize) -> Option<Vec<(Sha256, usize)>> {
+        if block_idx >= self.blockchain.blocks.len() {
+            return None;
+        }
+        self.blockchain.blocks[block_idx].merkle_tree.get_branch_hashes(tx)
+    }
 }
 
 #[cfg(test)]
