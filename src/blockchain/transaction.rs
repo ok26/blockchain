@@ -3,7 +3,7 @@ use crate::{ecdsa::{point::AffinePoint, ECDSAPublicKey}, math::random, sha256::S
 // txid is the hash of the transaction that created this input
 // vout is the index of the output in that transaction
 // script_sig is the signature and public key used to unlock this input
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TxInput {
     pub txid: Sha256,
     pub vout: u32,
@@ -19,7 +19,7 @@ pub struct TxOutput {
     pub spent: bool
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Transaction {
     pub coinbase_padding: Option<[u64; 4]>, // Used to distinguish coinbase transactions in different blocks
     pub inputs: Vec<TxInput>,
