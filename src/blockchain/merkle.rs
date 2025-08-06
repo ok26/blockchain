@@ -23,7 +23,6 @@ pub struct MerkleTree {
 impl MerkleTree {
     pub fn new(transactions: Vec<Transaction>) -> MerkleTree {
         let mut hashes: Vec<Sha256> = transactions.iter().map(|tx| tx.hash()).collect();
-        println!("{}", hashes[0]);
 
         // Pad with the last hash
         if hashes.len() == 1 {
@@ -117,7 +116,6 @@ impl MerkleTree {
 
     pub fn verify_transaction_branch(tx: Transaction, branch: Vec<(Sha256, usize)>, root_hash: Sha256) -> bool {
         let tx_hash = tx.hash();
-        println!("{}", tx_hash);
         let mut node_hash = tx_hash.clone();
         for (hash, side) in branch {
             
